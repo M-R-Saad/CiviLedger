@@ -1,0 +1,21 @@
+{
+  "name": "civiledger-contracts",
+  "version": "1.0.0",
+  "description": "CiviLedger smart contracts (Governance, IssuerRegistry, CredentialRegistry, CredentialStatus, ConsentAudit)",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
+    "seed:local": "hardhat run scripts/seed-demo-data.js --network localhost"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "dotenv": "^16.4.5"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2"
+  }
+}

@@ -1,0 +1,19 @@
+# Optional convenience file — spins up Postgres locally for backend dev.
+# Contracts (Hardhat node) and the frontend are still run separately with `npm run dev`
+# since they need interactive terminals / hot reload.
+version: "3.8"
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: civiledger
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - civiledger_pgdata:/var/lib/postgresql/data
+
+volumes:
+  civiledger_pgdata:

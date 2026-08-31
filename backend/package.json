@@ -1,0 +1,32 @@
+{
+  "name": "civiledger-backend",
+  "version": "1.0.0",
+  "description": "CiviLedger application layer: REST API bridging the React frontend, PostgreSQL, and the CiviLedger smart contracts",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo",
+    "seed": "npx sequelize-cli db:seed:all"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.1",
+    "sequelize": "^6.37.3",
+    "pg": "^8.12.0",
+    "pg-hstore": "^2.3.4",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "qrcode": "^1.5.3",
+    "uuid": "^9.0.1",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "sequelize-cli": "^6.6.2"
+  }
+}

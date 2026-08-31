@@ -1,0 +1,167 @@
+{
+  "database": "civiledger",
+  "engine": "PostgreSQL (SQLite-compatible for local dev)",
+  "notes": "This is the OFF-CHAIN database only. On-chain data (hashes, status, timestamps, roles) lives in the smart contracts and is never duplicated here except as a cached mirror for fast UI reads (see credential_onchain_cache).",
+  "tables": [
+    {
+      "name": "users",
+      "description": "All human accounts across roles: citizens, issuer staff, verifier staff, oversight/admin.",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "full_name", "type": "VARCHAR(255)", "nullable": false },
+        { "name": "email", "type": "VARCHAR(255)", "nullable": false, "unique": true },
+        { "name": "password_hash", "type": "VARCHAR(255)", "nullable": true, "notes": "null for citizens who only auth via wallet" },
+        { "name": "role", "type": "ENUM", "values": ["CITIZEN", "ISSUER_ADMIN", "VERIFIER_STAFF", "OVERSIGHT"], "nullable": false },
+        { "name": "organization_id", "type": "UUID", "nullable": true, "foreign_key": "organizations.id", "notes": "set for ISSUER_ADMIN / VERIFIER_STAFF, null for CITIZEN" },
+        { "name": "wallet_address", "type": "VARCHAR(42)", "nullable": true, "unique": true, "notes": "citizen's MetaMask address, primary identity anchor for CITIZEN role" },
+        { "name": "did", "type": "VARCHAR(255)", "nullable": true, "unique": true, "notes": "decentralized identifier string, derived from wallet_address for prototype (e.g. did:ethr:<address>)" },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" },
+        { "name": "updated_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "organizations",
+      "description": "Issuer or verifier organizations participating in the consortium (Identity Authority, Education Board, Transport Authority, plus verifier orgs like employers/banks).",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "name", "type": "VARCHAR(255)", "nullable": false },
+        { "name": "type", "type": "ENUM", "values": ["ISSUER", "VERIFIER", "BOTH"], "nullable": false },
+        { "name": "onchain_address", "type": "VARCHAR(42)", "nullable": true, "unique": true, "notes": "the wallet address this org uses to sign issuance/verification txs; matches IssuerRegistry.sol entry" },
+        { "name": "credential_types_authorized", "type": "TEXT[]", "nullable": true, "notes": "e.g. ['ACADEMIC'] for Education Authority; informs UI which forms it can issue" },
+        { "name": "status", "type": "ENUM", "values": ["PENDING", "ACTIVE", "SUSPENDED", "OFFBOARDED"], "default": "PENDING" },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "credential_types",
+      "description": "Schema catalog describing the shape of each credential type (drives dynamic issuance forms).",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "code", "type": "VARCHAR(50)", "nullable": false, "unique": true, "notes": "e.g. 'IDENTITY', 'ACADEMIC_DEGREE', 'DRIVING_LICENSE'" },
+        { "name": "display_name", "type": "VARCHAR(255)", "nullable": false },
+        { "name": "schema_version", "type": "INTEGER", "default": 1 },
+        { "name": "json_schema", "type": "JSONB", "nullable": false, "notes": "field definitions for the full credential payload, e.g. {institution, degree, graduation_year, gpa}" },
+        { "name": "minimal_disclosure_fields", "type": "JSONB", "nullable": true, "notes": "which derived purpose-specific claims can be generated, e.g. {'is_above_18': 'derived from dob'}" },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "credentials",
+      "description": "Full credential payloads, held off-chain. Only the hash of this record's canonical JSON is written on-chain.",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "credential_type_id", "type": "UUID", "foreign_key": "credential_types.id", "nullable": false },
+        { "name": "issuer_org_id", "type": "UUID", "foreign_key": "organizations.id", "nullable": false },
+        { "name": "citizen_user_id", "type": "UUID", "foreign_key": "users.id", "nullable": false },
+        { "name": "payload", "type": "JSONB", "nullable": false, "notes": "the actual claim data, shape defined by credential_types.json_schema" },
+        { "name": "payload_hash", "type": "VARCHAR(66)", "nullable": false, "notes": "keccak256 hash of canonicalized payload; MUST match the hash anchored on-chain in CredentialRegistry.sol" },
+        { "name": "onchain_anchor_id", "type": "VARCHAR(66)", "nullable": true, "notes": "tx hash or anchor ID returned from issueAnchor() call" },
+        { "name": "issued_at", "type": "TIMESTAMP", "nullable": false },
+        { "name": "expires_at", "type": "TIMESTAMP", "nullable": true },
+        { "name": "status_cache", "type": "ENUM", "values": ["ACTIVE", "SUSPENDED", "REVOKED", "SUPERSEDED"], "default": "ACTIVE", "notes": "cached mirror of on-chain status for fast UI reads; always re-verify against chain before trusting for a real decision" },
+        { "name": "superseded_by_credential_id", "type": "UUID", "nullable": true, "foreign_key": "credentials.id" },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "purpose_specific_credentials",
+      "description": "Derived minimal-disclosure credentials (e.g. 'is-above-18') signed alongside a full credential.",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "source_credential_id", "type": "UUID", "foreign_key": "credentials.id", "nullable": false },
+        { "name": "claim_key", "type": "VARCHAR(100)", "nullable": false, "notes": "e.g. 'is_above_18'" },
+        { "name": "claim_value", "type": "JSONB", "nullable": false, "notes": "e.g. true, or {'eligible': true}" },
+        { "name": "payload_hash", "type": "VARCHAR(66)", "nullable": false },
+        { "name": "onchain_anchor_id", "type": "VARCHAR(66)", "nullable": true },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "presentations",
+      "description": "A single act of a citizen sharing one or more credentials (or purpose-specific claims) with a verifier. Generated as a QR/link.",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "citizen_user_id", "type": "UUID", "foreign_key": "users.id", "nullable": false },
+        { "name": "verifier_org_id", "type": "UUID", "foreign_key": "organizations.id", "nullable": true, "notes": "null until a verifier actually opens/claims the presentation" },
+        { "name": "credential_ids", "type": "UUID[]", "nullable": false, "notes": "which credentials/purpose-specific claims are included" },
+        { "name": "consent_signature", "type": "TEXT", "nullable": false, "notes": "MetaMask signature from citizen approving this share" },
+        { "name": "consent_hash", "type": "VARCHAR(66)", "nullable": false, "notes": "hash recorded on-chain via ConsentAudit.sol recordConsentHash()" },
+        { "name": "share_token", "type": "VARCHAR(64)", "nullable": false, "unique": true, "notes": "random token embedded in the QR/link URL" },
+        { "name": "expires_at", "type": "TIMESTAMP", "nullable": false, "notes": "presentation links should be short-lived, e.g. 15 min" },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "verification_events",
+      "description": "Log of each time a verifier checked a presentation. Mirrors recordPresentationReceipt() on-chain.",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "presentation_id", "type": "UUID", "foreign_key": "presentations.id", "nullable": false },
+        { "name": "verifier_org_id", "type": "UUID", "foreign_key": "organizations.id", "nullable": false },
+        { "name": "verifier_user_id", "type": "UUID", "foreign_key": "users.id", "nullable": true },
+        { "name": "result", "type": "ENUM", "values": ["VALID", "INVALID_SIGNATURE", "REVOKED", "EXPIRED", "ISSUER_NOT_TRUSTED"], "nullable": false },
+        { "name": "onchain_receipt_tx", "type": "VARCHAR(66)", "nullable": true },
+        { "name": "verified_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "governance_events",
+      "description": "Cached mirror of Governance.sol events (member proposed/approved/suspended, role updates) for the oversight dashboard.",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "event_type", "type": "ENUM", "values": ["MEMBER_PROPOSED", "MEMBER_APPROVED", "MEMBER_SUSPENDED", "MEMBER_OFFBOARDED", "ROLE_GRANTED", "ROLE_REVOKED", "POLICY_UPDATED"], "nullable": false },
+        { "name": "organization_id", "type": "UUID", "foreign_key": "organizations.id", "nullable": true },
+        { "name": "actor_user_id", "type": "UUID", "foreign_key": "users.id", "nullable": true },
+        { "name": "details", "type": "JSONB", "nullable": true },
+        { "name": "onchain_tx_hash", "type": "VARCHAR(66)", "nullable": true },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "credential_status_events",
+      "description": "Cached mirror of CredentialStatus.sol events (suspend/reactivate/revoke) for audit history display.",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "credential_id", "type": "UUID", "foreign_key": "credentials.id", "nullable": false },
+        { "name": "previous_status", "type": "ENUM", "values": ["ACTIVE", "SUSPENDED", "REVOKED", "SUPERSEDED"], "nullable": false },
+        { "name": "new_status", "type": "ENUM", "values": ["ACTIVE", "SUSPENDED", "REVOKED", "SUPERSEDED"], "nullable": false },
+        { "name": "reason", "type": "TEXT", "nullable": true },
+        { "name": "actor_user_id", "type": "UUID", "foreign_key": "users.id", "nullable": true },
+        { "name": "onchain_tx_hash", "type": "VARCHAR(66)", "nullable": true },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    },
+    {
+      "name": "documents",
+      "description": "Uploaded source documents/scans backing a credential (kept off-chain, never hashed into the on-chain anchor directly).",
+      "columns": [
+        { "name": "id", "type": "UUID", "primary_key": true, "default": "gen_random_uuid()" },
+        { "name": "credential_id", "type": "UUID", "foreign_key": "credentials.id", "nullable": true },
+        { "name": "uploaded_by_user_id", "type": "UUID", "foreign_key": "users.id", "nullable": false },
+        { "name": "file_path", "type": "VARCHAR(500)", "nullable": false, "notes": "local disk path for prototype; swap for S3/GCS key in production" },
+        { "name": "file_type", "type": "VARCHAR(50)", "nullable": true },
+        { "name": "created_at", "type": "TIMESTAMP", "default": "now()" }
+      ]
+    }
+  ],
+  "relationships_summary": [
+    "organizations 1--* users (staff belong to an org)",
+    "credential_types 1--* credentials",
+    "organizations (issuer) 1--* credentials",
+    "users (citizen) 1--* credentials",
+    "credentials 1--* purpose_specific_credentials",
+    "users (citizen) 1--* presentations",
+    "presentations 1--* verification_events",
+    "credentials 1--* credential_status_events",
+    "organizations 1--* governance_events",
+    "credentials 1--* documents"
+  ],
+  "on_chain_offchain_reconciliation": {
+    "principle": "Every row that has an onchain_anchor_id / onchain_tx_hash / onchain_receipt_tx field is a CACHE of blockchain truth, written for fast reads. Before showing a verifier a final trust decision, the backend should re-read the live status from CredentialStatus.sol via ethers.js, not rely solely on status_cache.",
+    "fields_to_reconcile": [
+      "credentials.status_cache vs CredentialStatus.getStatus()",
+      "credentials.payload_hash vs CredentialRegistry.getAnchor().hash",
+      "organizations.status vs IssuerRegistry.getIssuer().status"
+    ]
+  }
+}
