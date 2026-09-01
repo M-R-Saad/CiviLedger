@@ -4,9 +4,12 @@ const authMiddleware = require("../middleware/auth.middleware");
 const requireRole = require("../middleware/role.middleware");
 const verifierController = require("../controllers/verifier.controller");
 
-// Reading a presentation by token can be left public-ish (token acts as the secret),
-// but verifying/logging the result requires an authenticated verifier account.
+// Reading / checking a presentation by token is public — the token is the secret.
+// Anyone the citizen shares the link with (including the citizen) can see the result.
 router.get("/presentations/:token", verifierController.getPresentation);
+router.get("/presentations/:token/check", verifierController.checkPresentation);
+
+// Recording an OFFICIAL verification (on-chain receipt + logged event) needs a verifier account.
 router.post("/verify", authMiddleware, requireRole("VERIFIER_STAFF"), verifierController.verifyPresentation);
 
 module.exports = router;

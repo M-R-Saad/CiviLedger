@@ -1,0 +1,40 @@
+/* CiviLedger design tokens — see DESIGN.md. Light is the only implemented theme. */
+:root {
+  /* Surfaces */
+  --bg:              oklch(0.992 0.003 75);
+  --surface:         oklch(1     0     0  );
+  --surface-sunken:  oklch(0.972 0.004 75);
+
+  /* Text */
+  --text:            oklch(0.24  0.012 75);
+  --text-muted:      oklch(0.47  0.012 75);
+  --text-subtle:     oklch(0.60  0.010 75);
+  --text-on-accent:  oklch(0.99  0.003 75);
+
+  /* Lines */
+  --border:          oklch(0.905 0.006 75);
+  --border-strong:   oklch(0.82  0.008 75);
+
+  /* Accent — restrained indigo */
+  --accent:          oklch(0.47  0.11  275);
+  --accent-hover:    oklch(0.41  0.11  275);
+  --accent-active:   oklch(0.36  0.10  275);
+  --accent-quiet:    oklch(0.962 0.020 275);
+  --accent-border:   oklch(0.86  0.045 275);
+
+  /* Focus — amber-gold, high contrast on every surface */
+  --focus-ring:      oklch(0.80  0.16  85);
+
+  /* Semantic */
+  --ok-fg:           oklch(0.45  0.11  150);
+  --ok-bg:           oklch(0.955 0.030 150);
+  --ok-border:       oklch(0.84  0.070 150);
+
+  --warn-fg:         oklch(0.50  0.10  70);
+  --warn-bg:         oklch(0.960 0.045 75);
+  --warn-border:     oklch(0.83  0.080 75);
+
+  --danger-fg:       oklch(0.50  0.17  25);
+  --danger-bg:       oklch(0.960 0.030 25);
+  --danger-border:   oklch(0.85  0.090 25);
+}

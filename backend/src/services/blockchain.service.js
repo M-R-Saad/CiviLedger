@@ -34,7 +34,22 @@ async function issueAnchor({ credentialTypeCode, payloadHash, citizenAddress, ex
 async function getStatus(anchorId) {
   const contract = getContract("CredentialStatus");
   const statusEnum = await contract.getStatus(anchorId);
-  return ["ACTIVE", "SUSPENDED", "REVOKED"][Number(statusEnum)];
+  return ["ACTIVE", "SUSPENDED", "REVOKED"][Number(statusEnum)] || "UNKNOWN";
+}
+
+async function getAnchor(anchorId) {
+  const contract = getContract("CredentialRegistry");
+  return contract.getAnchor(anchorId);
+}
+
+// Combines the two IssuerRegistry reads the verifier flow needs.
+async function getIssuerInfo(address) {
+  const contract = getContract("IssuerRegistry");
+  const [active, data] = await Promise.all([
+    contract.isActiveIssuer(address),
+    contract.getIssuer(address)
+  ]);
+  return { active: Boolean(active), name: data && data.name ? data.name : null };
 }
 
 async function changeStatus({ credentialTypeCode, anchorId, action, reason }) {
@@ -65,4 +80,12 @@ async function recordPresentationReceipt({ verifierSigner, consentHash, result }
   return { txHash: receipt.hash };
 }
 
-module.exports = { issueAnchor, getStatus, changeStatus, recordConsent, recordPresentationReceipt };
+module.exports = {
+  issueAnchor,
+  getStatus,
+  getAnchor,
+  getIssuerInfo,
+  changeStatus,
+  recordConsent,
+  recordPresentationReceipt
+};

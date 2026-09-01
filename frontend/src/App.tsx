@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Navbar } from "./components/layout/Navbar";
-import { RoleGuard } from "./components/layout/RoleGuard";
+import { useT } from "./i18n/I18nProvider";
+import { PublicLayout } from "./components/layout/PublicLayout";
+import { AppShell } from "./components/layout/AppShell";
+import { RequireAuth, RequireRole } from "./components/layout/RequireAuth";
 
 import Login from "./pages/auth/Login";
 import ConnectWallet from "./pages/auth/ConnectWallet";
@@ -19,36 +21,118 @@ import VerificationResult from "./pages/verifier/VerificationResult";
 import GovernanceDashboard from "./pages/oversight/GovernanceDashboard";
 import AuditLog from "./pages/oversight/AuditLog";
 
+function NotFound() {
+  const { t } = useT();
+  return (
+    <div className="min-h-screen bg-bg">
+      <div className="px-4 py-24 text-center text-sm text-ink-muted">
+        {t("error.notFound")}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
-    <div>
-      <Navbar />
-      <Routes>
+    <Routes>
+      {/* Public: auth screens and the citizen-shared verification link */}
+      <Route element={<PublicLayout />}>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/connect-wallet" element={<ConnectWallet />} />
-
-        {/* Citizen */}
-        <Route path="/citizen" element={<RoleGuard allow={["CITIZEN"]}><WalletHome /></RoleGuard>} />
-        <Route path="/citizen/share" element={<RoleGuard allow={["CITIZEN"]}><ShareCredential /></RoleGuard>} />
-        <Route path="/citizen/audit" element={<RoleGuard allow={["CITIZEN"]}><AuditHistory /></RoleGuard>} />
-
-        {/* Issuer */}
-        <Route path="/issuer" element={<RoleGuard allow={["ISSUER_ADMIN"]}><IssueDashboard /></RoleGuard>} />
-        <Route path="/issuer/new" element={<RoleGuard allow={["ISSUER_ADMIN"]}><IssueCredentialForm /></RoleGuard>} />
-        <Route path="/issuer/manage/:id" element={<RoleGuard allow={["ISSUER_ADMIN"]}><ManageCredential /></RoleGuard>} />
-
-        {/* Verifier — /verify/:token is the public entry point citizens share via QR/link */}
-        <Route path="/verifier" element={<RoleGuard allow={["VERIFIER_STAFF"]}><ScanPresentation /></RoleGuard>} />
         <Route path="/verify/:token" element={<VerificationResult />} />
-        <Route path="/verifier/result/:token" element={<RoleGuard allow={["VERIFIER_STAFF"]}><VerificationResult /></RoleGuard>} />
+      </Route>
 
-        {/* Oversight */}
-        <Route path="/oversight" element={<RoleGuard allow={["OVERSIGHT"]}><GovernanceDashboard /></RoleGuard>} />
-        <Route path="/oversight/audit" element={<RoleGuard allow={["OVERSIGHT"]}><AuditLog /></RoleGuard>} />
+      {/* Authenticated: app shell + per-route role gates */}
+      <Route element={<RequireAuth />}>
+        <Route element={<AppShell />}>
+          <Route
+            path="/citizen"
+            element={
+              <RequireRole roles={["CITIZEN"]}>
+                <WalletHome />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/citizen/share"
+            element={
+              <RequireRole roles={["CITIZEN"]}>
+                <ShareCredential />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/citizen/audit"
+            element={
+              <RequireRole roles={["CITIZEN"]}>
+                <AuditHistory />
+              </RequireRole>
+            }
+          />
 
-        <Route path="*" element={<div className="p-10 text-center text-slate-500">404 — Page not found</div>} />
-      </Routes>
-    </div>
+          <Route
+            path="/issuer"
+            element={
+              <RequireRole roles={["ISSUER_ADMIN"]}>
+                <IssueDashboard />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/issuer/new"
+            element={
+              <RequireRole roles={["ISSUER_ADMIN"]}>
+                <IssueCredentialForm />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/issuer/manage/:id"
+            element={
+              <RequireRole roles={["ISSUER_ADMIN"]}>
+                <ManageCredential />
+              </RequireRole>
+            }
+          />
+
+          <Route
+            path="/verifier"
+            element={
+              <RequireRole roles={["VERIFIER_STAFF"]}>
+                <ScanPresentation />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/verifier/result/:token"
+            element={
+              <RequireRole roles={["VERIFIER_STAFF"]}>
+                <VerificationResult />
+              </RequireRole>
+            }
+          />
+
+          <Route
+            path="/oversight"
+            element={
+              <RequireRole roles={["OVERSIGHT"]}>
+                <GovernanceDashboard />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/oversight/audit"
+            element={
+              <RequireRole roles={["OVERSIGHT"]}>
+                <AuditLog />
+              </RequireRole>
+            }
+          />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
