@@ -1,73 +1,108 @@
 const { Presentation, Credential, CredentialType, VerificationEvent, Organization } = require("../models");
-const reconciliationService = require("../services/reconciliation.service");
+const verificationService = require("../services/verification.service");
 const blockchainService = require("../services/blockchain.service");
 const { getSigner } = require("../config/blockchain");
 
-// GET /verifier/presentations/:token
-async function getPresentation(req, res) {
-  const { token } = req.params;
+async function loadPresentation(token) {
   const presentation = await Presentation.findOne({ where: { share_token: token } });
-  if (!presentation) return res.status(404).json({ error: "Presentation not found" });
-  if (new Date() > presentation.expires_at) return res.status(410).json({ error: "Presentation link expired" });
-
+  if (!presentation) return { notFound: true };
   const credentials = await Credential.findAll({
     where: { id: presentation.credential_ids },
     include: [CredentialType, { model: Organization, as: "issuer" }]
   });
+  return { presentation, credentials };
+}
 
-  return res.json({ presentation, credentials });
+// GET /verifier/presentations/:token
+// Raw presentation + credential rows. Used for a pre-verify preview.
+async function getPresentation(req, res) {
+  const { presentation, credentials, notFound } = await loadPresentation(req.params.token);
+  if (notFound) return res.status(404).json({ error: "not_found" });
+  const expired = new Date() > presentation.expires_at;
+  return res.json({ presentation, credentials, expired });
+}
+
+// GET /verifier/presentations/:token/check
+// Public, read-only. Runs the full check set. Writes nothing.
+async function checkPresentation(req, res) {
+  try {
+    const { presentation, credentials, notFound } = await loadPresentation(req.params.token);
+    if (notFound) return res.status(404).json({ error: "not_found" });
+    if (new Date() > presentation.expires_at) {
+      return res.status(410).json({ error: "expired", expiresAt: presentation.expires_at });
+    }
+
+    const { overall, results } = await verificationService.verifyPresentationCredentials(credentials);
+
+    return res.json({
+      overall,
+      results,
+      recorded: false,
+      presentation: {
+        shareToken: presentation.share_token,
+        credentialCount: credentials.length,
+        createdAt: presentation.created_at,
+        expiresAt: presentation.expires_at
+      }
+    });
+  } catch (err) {
+    console.error("checkPresentation failed:", err);
+    return res.status(500).json({ error: "verification_failed" });
+  }
 }
 
 // POST /verifier/verify   body: { share_token }
+// Authenticated verifier: same checks, plus an on-chain receipt and a logged event.
 async function verifyPresentation(req, res) {
   try {
     const { share_token } = req.body;
-    const presentation = await Presentation.findOne({ where: { share_token } });
-    if (!presentation) return res.status(404).json({ error: "Presentation not found" });
+    const { presentation, credentials, notFound } = await loadPresentation(share_token);
+    if (notFound) return res.status(404).json({ error: "not_found" });
 
-    const credentials = await Credential.findAll({ where: { id: presentation.credential_ids } });
-
-    let overallResult = "VALID";
-    const details = [];
-
-    for (const credential of credentials) {
-      const { status } = await reconciliationService.reconcileCredentialStatus(credential);
-      details.push({ credential_id: credential.id, liveStatus: status });
-      if (status !== "ACTIVE") overallResult = status === "SUSPENDED" ? "REVOKED" : status; // map suspended->treated as not valid for verifier purposes
-    }
-
-    if (new Date() > presentation.expires_at) overallResult = "EXPIRED";
+    const expired = new Date() > presentation.expires_at;
+    const { overall, results } = await verificationService.verifyPresentationCredentials(credentials);
+    const finalVerdict = expired && overall === "VALID" ? "EXPIRED" : overall;
 
     presentation.verifier_org_id = req.user.organization_id;
     await presentation.save();
 
-    // Record presentation receipt on-chain via ConsentAudit contract.
-    // In the prototype the backend relays this using the admin signer.
-    let onchainReceiptTx = null;
-    try {
-      const adminSigner = getSigner("ADMIN_PRIVATE_KEY");
-      const result = await blockchainService.recordPresentationReceipt({
-        verifierSigner: adminSigner,
-        consentHash: presentation.consent_hash,
-        result: overallResult === "VALID"
+    const eventResult = verificationService.toEventResult(finalVerdict);
+    let event = null;
+    let receiptTx = null;
+
+    if (eventResult) {
+      try {
+        const adminSigner = getSigner("ADMIN_PRIVATE_KEY");
+        const result = await blockchainService.recordPresentationReceipt({
+          verifierSigner: adminSigner,
+          consentHash: presentation.consent_hash,
+          result: finalVerdict === "VALID"
+        });
+        receiptTx = result.txHash;
+      } catch (chainErr) {
+        console.warn("On-chain receipt recording failed (non-fatal):", chainErr.message);
+      }
+
+      event = await VerificationEvent.create({
+        presentation_id: presentation.id,
+        verifier_org_id: req.user.organization_id,
+        verifier_user_id: req.user.id,
+        result: eventResult,
+        onchain_receipt_tx: receiptTx
       });
-      onchainReceiptTx = result.txHash;
-    } catch (chainErr) {
-      console.warn("On-chain receipt recording failed (non-fatal):", chainErr.message);
     }
 
-    const event = await VerificationEvent.create({
-      presentation_id: presentation.id,
-      verifier_org_id: req.user.organization_id,
-      verifier_user_id: req.user.id,
-      result: overallResult,
-      onchain_receipt_tx: onchainReceiptTx
+    return res.json({
+      overall: finalVerdict,
+      results,
+      recorded: Boolean(event),
+      receiptTx,
+      event
     });
-
-    return res.json({ result: overallResult, details, event });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("verifyPresentation failed:", err);
+    return res.status(500).json({ error: "verification_failed" });
   }
 }
 
-module.exports = { getPresentation, verifyPresentation };
+module.exports = { getPresentation, checkPresentation, verifyPresentation };

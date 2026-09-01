@@ -13,6 +13,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// The AuthProvider registers a handler here so a 401 anywhere drops the session
+// and bounces to /login. 401s from /auth/* (a bad password) are left alone.
+let unauthorizedHandler: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  unauthorizedHandler = fn;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const url: string = error?.config?.url || "";
+    if (status === 401 && !url.startsWith("/auth/")) {
+      unauthorizedHandler?.();
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 // --- Typed endpoint helpers, matching backend/src/routes ---
@@ -38,6 +57,9 @@ export const citizenApi = {
 
 export const verifierApi = {
   getPresentation: (token: string) => api.get(`/verifier/presentations/${token}`),
+  // Public read-only verification (token is the secret). No record is written.
+  check: (token: string) => api.get(`/verifier/presentations/${token}/check`),
+  // Authenticated verifier action: same checks, plus an on-chain receipt + logged event.
   verify: (share_token: string) => api.post("/verifier/verify", { share_token })
 };
 
