@@ -2,8 +2,17 @@ import { useState, useEffect } from "react";
 import { governanceApi } from "../../services/api";
 import { useApi } from "../../hooks/useApi";
 import { Button } from "../../components/common/Button";
+import { StatsCard } from "../../components/ui/StatsCard";
 import { Link } from "react-router-dom";
 import type { Organization } from "../../types";
+
+interface GovernanceStats {
+  totalOrgs: number;
+  activeOrgs: number;
+  pendingOrgs: number;
+  totalGovernanceEvents: number;
+  totalStatusEvents: number;
+}
 
 export default function GovernanceDashboard() {
   const [name, setName] = useState("");
@@ -11,6 +20,7 @@ export default function GovernanceDashboard() {
   const [orgType, setOrgType] = useState<"ISSUER" | "VERIFIER" | "BOTH">("ISSUER");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [stats, setStats] = useState<GovernanceStats | null>(null);
 
   const { run: fetchPending, data: pendingOrgs } = useApi<Organization[]>(governanceApi.listPendingMembers);
   const { run: fetchOrgs, data: allOrgs } = useApi<Organization[]>(governanceApi.listOrganizations);
@@ -18,6 +28,7 @@ export default function GovernanceDashboard() {
   useEffect(() => {
     fetchPending();
     fetchOrgs();
+    governanceApi.stats().then((r) => setStats(r.data)).catch(() => {});
   }, [fetchPending, fetchOrgs]);
 
   async function handlePropose() {
@@ -35,6 +46,7 @@ export default function GovernanceDashboard() {
       setOnchainAddress("");
       fetchPending();
       fetchOrgs();
+      governanceApi.stats().then((r) => setStats(r.data)).catch(() => {});
     } catch (err: any) {
       setMessage(err?.response?.data?.error || "Failed to propose member");
     } finally {
@@ -48,6 +60,7 @@ export default function GovernanceDashboard() {
       setMessage("Member approved.");
       fetchPending();
       fetchOrgs();
+      governanceApi.stats().then((r) => setStats(r.data)).catch(() => {});
     } catch (err: any) {
       setMessage(err?.response?.data?.error || "Approval failed");
     }
@@ -61,6 +74,16 @@ export default function GovernanceDashboard() {
           <Button className="bg-slate-600 hover:bg-slate-500">View Audit Log</Button>
         </Link>
       </div>
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <StatsCard label="Total Orgs" value={stats.totalOrgs} color="accent" />
+          <StatsCard label="Active" value={stats.activeOrgs} color="ok" />
+          <StatsCard label="Pending" value={stats.pendingOrgs} color="warn" />
+          <StatsCard label="Governance Events" value={stats.totalGovernanceEvents} color="default" />
+        </div>
+      )}
 
       {/* Propose New Member */}
       <div className="bg-white border rounded-lg p-4 mb-6">

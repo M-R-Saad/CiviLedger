@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { credentialTypesApi, issuerApi } from "../../services/api";
 import { useApi } from "../../hooks/useApi";
 import { Button } from "../../components/common/Button";
+import { useToast } from "../../context/ToastProvider";
 import type { CredentialType } from "../../types";
 
 // Pre-filled demo citizens for quick selection during demos
@@ -14,6 +15,7 @@ const DEMO_CITIZENS = [
 
 export default function IssueCredentialForm() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const { run: fetchTypes, data: types } = useApi<CredentialType[]>(credentialTypesApi.list);
 
   const [typeCode, setTypeCode] = useState("");
@@ -41,11 +43,12 @@ export default function IssueCredentialForm() {
     try {
       // The backend will look up citizen_user_id by wallet address.
       // We pass wallet address only — much simpler for the demo.
-      await issuerApi.issueCredential({
+      const { data } = await issuerApi.issueCredential({
         credential_type_code: typeCode,
         citizen_wallet_address: citizenWallet,
         payload: payloadFields
       });
+      addToast(`✅ Credential issued — anchored on-chain (${data.onchain?.anchorId?.slice(0, 12)}...)`, "success");
       navigate("/issuer");
     } catch (err: any) {
       setError(err?.response?.data?.error || "Failed to issue credential");

@@ -91,4 +91,46 @@ async function changeCredentialStatus(req, res) {
   }
 }
 
-module.exports = { issueCredential, listIssuedCredentials, changeCredentialStatus };
+// GET /issuer/stats — aggregate counts for the issuer dashboard
+async function getIssuerStats(req, res) {
+  try {
+    const { Op } = require("sequelize");
+    const where = { issuer_org_id: req.user.organization_id };
+    const [total, active, suspended, revoked] = await Promise.all([
+      Credential.count({ where }),
+      Credential.count({ where: { ...where, status_cache: "ACTIVE" } }),
+      Credential.count({ where: { ...where, status_cache: "SUSPENDED" } }),
+      Credential.count({ where: { ...where, status_cache: "REVOKED" } }),
+    ]);
+    const recentActivity = await CredentialStatusEvent.findAll({
+      include: [{ model: Credential, where }],
+      order: [["created_at", "DESC"]],
+      limit: 5,
+    });
+    res.json({ total, active, suspended, revoked, recentActivity });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// GET /issuer/credentials/:id — full detail for a single credential
+async function getCredentialDetail(req, res) {
+  try {
+    const credential = await Credential.findByPk(req.params.id, {
+      include: [
+        CredentialType,
+        { model: User, as: "citizen", attributes: ["id", "full_name", "wallet_address", "did"] },
+        { model: CredentialStatusEvent, order: [["created_at", "DESC"]] }
+      ]
+    });
+    if (!credential) return res.status(404).json({ error: "Credential not found" });
+    if (credential.issuer_org_id !== req.user.organization_id) {
+      return res.status(403).json({ error: "Not your credential" });
+    }
+    res.json(credential);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { issueCredential, listIssuedCredentials, changeCredentialStatus, getIssuerStats, getCredentialDetail };

@@ -8,6 +8,8 @@ router.use(authMiddleware, requireRole("ISSUER_ADMIN"));
 
 router.post("/credentials", issuerController.issueCredential);
 router.get("/credentials", issuerController.listIssuedCredentials);
+router.get("/credentials/:id", issuerController.getCredentialDetail);
 router.post("/credentials/:id/status", issuerController.changeCredentialStatus);
+router.get("/stats", issuerController.getIssuerStats);
 
 module.exports = router;

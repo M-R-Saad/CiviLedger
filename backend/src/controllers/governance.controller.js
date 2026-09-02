@@ -102,4 +102,18 @@ async function listPendingMembers(req, res) {
   res.json(pending);
 }
 
-module.exports = { proposeMember, approveMember, getAuditLog, listOrganizations, listPendingMembers };
+// GET /governance/stats — aggregate counts for oversight dashboard
+async function getGovernanceStats(req, res) {
+  try {
+    const totalOrgs = await Organization.count();
+    const activeOrgs = await Organization.count({ where: { status: "ACTIVE" } });
+    const pendingOrgs = await Organization.count({ where: { status: "PENDING" } });
+    const totalGovernanceEvents = await GovernanceEvent.count();
+    const totalStatusEvents = await CredentialStatusEvent.count();
+    res.json({ totalOrgs, activeOrgs, pendingOrgs, totalGovernanceEvents, totalStatusEvents });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { proposeMember, approveMember, getAuditLog, listOrganizations, listPendingMembers, getGovernanceStats };

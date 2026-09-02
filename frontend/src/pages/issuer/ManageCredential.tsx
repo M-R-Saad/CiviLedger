@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { issuerApi } from "../../services/api";
 import { Button } from "../../components/common/Button";
+import { useToast } from "../../context/ToastProvider";
 
 export default function ManageCredential() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -13,8 +15,16 @@ export default function ManageCredential() {
     if (!id) return;
     setBusy(true);
     try {
-      await issuerApi.changeStatus(id, action, reason);
+      const { data } = await issuerApi.changeStatus(id, action, reason);
+      const labels: Record<string, string> = {
+        SUSPEND: "⚠️ Credential suspended",
+        REACTIVATE: "✅ Credential reactivated",
+        REVOKE: "❌ Credential revoked",
+      };
+      addToast(`${labels[action]} — status updated on-chain`, action === "REVOKE" ? "warning" : "success");
       navigate("/issuer");
+    } catch (err: any) {
+      addToast(err?.response?.data?.error || `Failed to ${action.toLowerCase()}`, "error");
     } finally {
       setBusy(false);
     }

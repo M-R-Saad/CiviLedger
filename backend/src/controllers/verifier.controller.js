@@ -105,4 +105,19 @@ async function verifyPresentation(req, res) {
   }
 }
 
-module.exports = { getPresentation, checkPresentation, verifyPresentation };
+// GET /verifier/stats — aggregate counts for verifier dashboard
+async function getVerifierStats(req, res) {
+  try {
+    const where = { verifier_org_id: req.user.organization_id };
+    const [totalVerifications, passed, failed] = await Promise.all([
+      VerificationEvent.count({ where }),
+      VerificationEvent.count({ where: { ...where, result: "PASS" } }),
+      VerificationEvent.count({ where: { ...where, result: "FAIL" } }),
+    ]);
+    res.json({ totalVerifications, passed, failed });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { getPresentation, checkPresentation, verifyPresentation, getVerifierStats };

@@ -19,7 +19,7 @@ async function listMyCredentials(req, res) {
 // consent_signature/consent_hash are produced client-side via MetaMask (see frontend/src/hooks/useWallet.ts)
 async function createPresentation(req, res) {
   try {
-    const { credential_ids, consent_signature, consent_hash } = req.body;
+    const { credential_ids, consent_signature, consent_hash, expiry_minutes } = req.body;
     if (!credential_ids || !credential_ids.length) {
       return res.status(400).json({ error: "credential_ids is required" });
     }
@@ -31,7 +31,8 @@ async function createPresentation(req, res) {
     const finalConsentSignature = consent_signature || "backend-relayed";
 
     const shareToken = uuidv4().replace(/-/g, "");
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min, matches docs recommendation
+    const expiryMs = (expiry_minutes || 15) * 60 * 1000;
+    const expiresAt = new Date(Date.now() + expiryMs);
 
     const presentation = await Presentation.create({
       citizen_user_id: req.user.id,
@@ -83,4 +84,44 @@ async function getAuditHistory(req, res) {
   }
 }
 
-module.exports = { listMyCredentials, createPresentation, getAuditHistory };
+// GET /citizen/stats — aggregate counts for citizen wallet dashboard
+async function getCitizenStats(req, res) {
+  try {
+    const totalCredentials = await Credential.count({ where: { citizen_user_id: req.user.id } });
+    const activeCredentials = await Credential.count({ where: { citizen_user_id: req.user.id, status_cache: "ACTIVE" } });
+    const { Presentation: PresentationModel } = require("../models");
+    const totalShared = await PresentationModel.count({ where: { citizen_user_id: req.user.id } });
+    const expiredCredentials = await Credential.count({
+      where: {
+        citizen_user_id: req.user.id,
+        expires_at: { [require("sequelize").Op.lt]: new Date() }
+      }
+    });
+    res.json({ totalCredentials, activeCredentials, expiredCredentials, totalShared });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// GET /citizen/credentials/:id — full detail for citizen's own credential
+async function getCredentialDetail(req, res) {
+  try {
+    const { CredentialStatusEvent } = require("../models");
+    const credential = await Credential.findByPk(req.params.id, {
+      include: [
+        CredentialType,
+        { model: Organization, as: "issuer" },
+        { model: CredentialStatusEvent, order: [["created_at", "DESC"]] }
+      ]
+    });
+    if (!credential) return res.status(404).json({ error: "Credential not found" });
+    if (credential.citizen_user_id !== req.user.id) {
+      return res.status(403).json({ error: "Not your credential" });
+    }
+    res.json(credential);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { listMyCredentials, createPresentation, getAuditHistory, getCitizenStats, getCredentialDetail };

@@ -45,14 +45,18 @@ export const authApi = {
 export const issuerApi = {
   issueCredential: (payload: object) => api.post("/issuer/credentials", payload),
   listIssued: () => api.get("/issuer/credentials"),
+  getCredential: (id: string) => api.get(`/issuer/credentials/${id}`),
   changeStatus: (id: string, action: string, reason?: string) =>
-    api.post(`/issuer/credentials/${id}/status`, { action, reason })
+    api.post(`/issuer/credentials/${id}/status`, { action, reason }),
+  stats: () => api.get("/issuer/stats")
 };
 
 export const citizenApi = {
   listMyCredentials: () => api.get("/citizen/credentials"),
+  getCredential: (id: string) => api.get(`/citizen/credentials/${id}`),
   createPresentation: (payload: object) => api.post("/citizen/presentations", payload),
-  auditHistory: () => api.get("/citizen/audit-history")
+  auditHistory: () => api.get("/citizen/audit-history"),
+  stats: () => api.get("/citizen/stats")
 };
 
 export const verifierApi = {
@@ -60,7 +64,8 @@ export const verifierApi = {
   // Public read-only verification (token is the secret). No record is written.
   check: (token: string) => api.get(`/verifier/presentations/${token}/check`),
   // Authenticated verifier action: same checks, plus an on-chain receipt + logged event.
-  verify: (share_token: string) => api.post("/verifier/verify", { share_token })
+  verify: (share_token: string) => api.post("/verifier/verify", { share_token }),
+  stats: () => api.get("/verifier/stats")
 };
 
 export const governanceApi = {
@@ -68,7 +73,8 @@ export const governanceApi = {
   approveMember: (organizationId: string) => api.post(`/governance/approve-member/${organizationId}`),
   auditLog: () => api.get("/governance/audit-log"),
   listOrganizations: () => api.get("/governance/organizations"),
-  listPendingMembers: () => api.get("/governance/pending-members")
+  listPendingMembers: () => api.get("/governance/pending-members"),
+  stats: () => api.get("/governance/stats")
 };
 
 export const credentialTypesApi = {

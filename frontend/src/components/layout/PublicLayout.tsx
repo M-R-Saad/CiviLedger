@@ -8,7 +8,7 @@ export function PublicLayout() {
   return (
     <div className="min-h-screen bg-bg">
       <header className="flex h-14 items-center justify-between border-b border-line bg-surface px-6">
-        <Link to="/login" className="text-md font-semibold text-ink">
+        <Link to="/" className="text-md font-semibold text-ink">
           {t("app.name")}
         </Link>
         <LanguageToggle />

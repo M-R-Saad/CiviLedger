@@ -4,6 +4,7 @@ import { citizenApi } from "../../services/api";
 import { useApi } from "../../hooks/useApi";
 import { useWallet } from "../../hooks/useWallet";
 import { Button } from "../../components/common/Button";
+import { useToast } from "../../context/ToastProvider";
 import type { Credential } from "../../types";
 import { ethers } from "ethers";
 
@@ -13,11 +14,13 @@ export default function ShareCredential() {
 
   const { run: fetchCredentials, data: credentials } = useApi<Credential[]>(citizenApi.listMyCredentials);
   const { signMessage } = useWallet();
+  const { addToast } = useToast();
 
   const [selected, setSelected] = useState<string[]>(preselect ? [preselect] : []);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [expiryMinutes, setExpiryMinutes] = useState(15);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,12 +54,14 @@ export default function ShareCredential() {
       const { data } = await citizenApi.createPresentation({
         credential_ids: selected,
         consent_signature: signature,
-        consent_hash: consentHash
+        consent_hash: consentHash,
+        expiry_minutes: expiryMinutes
       });
 
       setShareUrl(data.shareUrl);
       setShareToken(data.shareUrl?.replace("/verify/", "") || null);
       setQrDataUrl(data.qrDataUrl);
+      addToast("📋 Share link generated — consent recorded on-chain", "success");
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || "Failed to create share link");
     } finally {
@@ -101,6 +106,27 @@ export default function ShareCredential() {
         </p>
       )}
 
+      {/* Expiry Time Picker */}
+      <div className="bg-white border rounded-lg p-4 mb-4">
+        <label className="text-sm font-medium text-slate-700 block mb-2">Link expires after</label>
+        <div className="flex gap-2">
+          {[{ val: 15, label: "15 minutes" }, { val: 60, label: "1 hour" }, { val: 1440, label: "24 hours" }].map((opt) => (
+            <button
+              key={opt.val}
+              type="button"
+              onClick={() => setExpiryMinutes(opt.val)}
+              className={`text-xs px-3 py-2 rounded-lg border transition-all ${
+                expiryMinutes === opt.val
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-slate-700 hover:bg-blue-50 hover:border-blue-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <Button onClick={handleShare} disabled={!selected.length || busy}>
         {busy ? "Creating share link..." : hasMetaMask ? "Generate Share Link (sign with MetaMask)" : "Generate Share Link"}
       </Button>
@@ -118,7 +144,10 @@ export default function ShareCredential() {
                 {window.location.origin}{shareUrl}
               </code>
               <button
-                onClick={() => navigator.clipboard.writeText(`${window.location.origin}${shareUrl}`)}
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}${shareUrl}`);
+                  addToast("📋 Share link copied to clipboard", "info");
+                }}
                 className="text-xs px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
               >
                 Copy
@@ -134,7 +163,10 @@ export default function ShareCredential() {
                   {shareToken}
                 </code>
                 <button
-                  onClick={() => navigator.clipboard.writeText(shareToken)}
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareToken);
+                    addToast("📋 Token copied to clipboard", "info");
+                  }}
                   className="text-xs px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 whitespace-nowrap"
                 >
                   Copy Token

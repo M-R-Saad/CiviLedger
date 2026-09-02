@@ -11,5 +11,6 @@ router.get("/presentations/:token/check", verifierController.checkPresentation);
 
 // Recording an OFFICIAL verification (on-chain receipt + logged event) needs a verifier account.
 router.post("/verify", authMiddleware, requireRole("VERIFIER_STAFF"), verifierController.verifyPresentation);
+router.get("/stats", authMiddleware, requireRole("VERIFIER_STAFF"), verifierController.getVerifierStats);
 
 module.exports = router;

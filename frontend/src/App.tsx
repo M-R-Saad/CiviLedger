@@ -4,16 +4,20 @@ import { PublicLayout } from "./components/layout/PublicLayout";
 import { AppShell } from "./components/layout/AppShell";
 import { RequireAuth, RequireRole } from "./components/layout/RequireAuth";
 
+import LandingPage from "./pages/LandingPage";
+
 import Login from "./pages/auth/Login";
 import ConnectWallet from "./pages/auth/ConnectWallet";
 
 import WalletHome from "./pages/citizen/WalletHome";
 import ShareCredential from "./pages/citizen/ShareCredential";
 import AuditHistory from "./pages/citizen/AuditHistory";
+import CitizenCredentialDetail from "./pages/citizen/CitizenCredentialDetail";
 
 import IssueDashboard from "./pages/issuer/IssueDashboard";
 import IssueCredentialForm from "./pages/issuer/IssueCredentialForm";
 import ManageCredential from "./pages/issuer/ManageCredential";
+import IssuerCredentialDetail from "./pages/issuer/IssuerCredentialDetail";
 
 import ScanPresentation from "./pages/verifier/ScanPresentation";
 import VerificationResult from "./pages/verifier/VerificationResult";
@@ -35,9 +39,11 @@ function NotFound() {
 export default function App() {
   return (
     <Routes>
+      {/* Landing page — no header chrome */}
+      <Route path="/" element={<LandingPage />} />
+
       {/* Public: auth screens and the citizen-shared verification link */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/connect-wallet" element={<ConnectWallet />} />
         <Route path="/verify/:token" element={<VerificationResult />} />
@@ -70,6 +76,14 @@ export default function App() {
               </RequireRole>
             }
           />
+          <Route
+            path="/citizen/credential/:id"
+            element={
+              <RequireRole roles={["CITIZEN"]}>
+                <CitizenCredentialDetail />
+              </RequireRole>
+            }
+          />
 
           <Route
             path="/issuer"
@@ -92,6 +106,14 @@ export default function App() {
             element={
               <RequireRole roles={["ISSUER_ADMIN"]}>
                 <ManageCredential />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/issuer/credential/:id"
+            element={
+              <RequireRole roles={["ISSUER_ADMIN"]}>
+                <IssuerCredentialDetail />
               </RequireRole>
             }
           />

@@ -11,5 +11,6 @@ router.post("/approve-member/:organizationId", governanceController.approveMembe
 router.get("/audit-log", governanceController.getAuditLog);
 router.get("/organizations", governanceController.listOrganizations);
 router.get("/pending-members", governanceController.listPendingMembers);
+router.get("/stats", governanceController.getGovernanceStats);
 
 module.exports = router;
