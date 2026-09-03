@@ -67,6 +67,14 @@ async function issueCredential(req, res) {
       expiresAt: expires_at ? Math.floor(new Date(expires_at).getTime() / 1000) : 0
     });
 
+    if (!anchorId) {
+      // Do not persist a credential that has no usable on-chain anchor: it could
+      // be neither verified nor managed later.
+      return res.status(502).json({
+        error: "On-chain anchoring did not return an anchor id, so the credential was not saved. Check the chain service and that the contract ABIs are in sync."
+      });
+    }
+
     // 2. Then persist the full payload off-chain, linked to the anchor
     const credential = await Credential.create({
       credential_type_id: credentialType.id,
@@ -108,6 +116,12 @@ async function changeCredentialStatus(req, res) {
 
     const credential = await Credential.findByPk(id, { include: [CredentialType] });
     if (!credential) return res.status(404).json({ error: "Credential not found" });
+
+    if (!credential.onchain_anchor_id) {
+      return res.status(409).json({
+        error: "This credential has no on-chain anchor, so its status cannot be changed on-chain. It was likely issued while the blockchain was unreachable. Re-issue it."
+      });
+    }
 
     const previousStatus = credential.status_cache;
 

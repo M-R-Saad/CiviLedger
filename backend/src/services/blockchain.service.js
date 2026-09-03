@@ -1,3 +1,4 @@
+const { ethers } = require("ethers");
 const { getContract, getSigner } = require("../config/blockchain");
 
 /**
@@ -24,11 +25,25 @@ async function issueAnchor({ credentialTypeCode, payloadHash, citizenAddress, ex
   const tx = await contract.issueAnchor(payloadHash, citizenAddress, credentialTypeCode, expiresAt || 0);
   const receipt = await tx.wait();
 
+  // Primary: read the anchor id off the emitted event.
   const event = receipt.logs
     .map((log) => { try { return contract.interface.parseLog(log); } catch { return null; } })
     .find((parsed) => parsed && parsed.name === "CredentialAnchored");
+  let anchorId = event ? event.args.anchorId : null;
 
-  return { txHash: receipt.hash, anchorId: event ? event.args.anchorId : null };
+  // Fallback: CredentialRegistry derives the id as
+  //   keccak256(abi.encodePacked(msg.sender, citizen, payloadHash, block.timestamp))
+  // so recompute it from the mined block. Keeps issuance working if the deployed
+  // ABI drifts from the contract and the event no longer parses.
+  if (!anchorId) {
+    const block = await signer.provider.getBlock(receipt.blockNumber);
+    anchorId = ethers.solidityPackedKeccak256(
+      ["address", "address", "bytes32", "uint256"],
+      [await signer.getAddress(), citizenAddress, payloadHash, block.timestamp]
+    );
+  }
+
+  return { txHash: receipt.hash, anchorId };
 }
 
 async function getStatus(anchorId) {
