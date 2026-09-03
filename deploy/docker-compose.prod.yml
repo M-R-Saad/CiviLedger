@@ -35,11 +35,17 @@ services:
     image: civiledger-chain
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8545"]
+      # `node` is guaranteed in this image; BusyBox `nc -z` on Alpine is not.
+      # Passes once the Hardhat JSON-RPC server has bound port 8545.
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('net').createConnection(8545,'127.0.0.1');s.on('connect',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),2500)"
       interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
 
   contracts-deploy:
     build:
