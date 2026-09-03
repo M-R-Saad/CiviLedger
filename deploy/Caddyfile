@@ -1,0 +1,18 @@
+# Auto-HTTPS reverse proxy. PUBLIC_HOSTNAME is an sslip.io name that resolves to the
+# droplet IP (e.g. 203-0-113-10.sslip.io) so Let's Encrypt can issue a cert without
+# you owning a domain. ACME_EMAIL is optional but recommended for expiry notices.
+
+{
+	email {$ACME_EMAIL:}
+}
+
+{$PUBLIC_HOSTNAME} {
+	encode gzip
+	reverse_proxy backend:4000
+	header -Server
+}
+
+# Redirect plain HTTP to HTTPS.
+http://{$PUBLIC_HOSTNAME} {
+	redir https://{host}{uri} permanent
+}

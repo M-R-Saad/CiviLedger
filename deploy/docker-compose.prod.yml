@@ -1,0 +1,135 @@
+# CiviLedger — single-droplet production stack.
+# Run from the deploy/ directory:
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+# The git post-receive hook does exactly that on every push to `production`.
+#
+# Topology:
+#   caddy (:80/:443, auto-HTTPS)  ->  backend (:4000)  ->  postgres
+#                                                       ->  chain (local Hardhat node)
+#   contracts-deploy runs once, writes contract addresses + ABIs to a shared volume.
+#
+# The local chain is EPHEMERAL: a droplet reboot wipes on-chain state. For durable
+# anchors, switch BLOCKCHAIN_* to Polygon Amoy (see docs/06_DEPLOYMENT.md).
+
+name: civiledger
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-civiledger}
+      POSTGRES_USER: ${DB_USER:-civiledger}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env.production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-civiledger} -d ${DB_NAME:-civiledger}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  chain:
+    build:
+      context: ../contracts
+    image: civiledger-chain
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  contracts-deploy:
+    build:
+      context: ../contracts
+    image: civiledger-chain
+    depends_on:
+      chain:
+        condition: service_healthy
+    environment:
+      LOCALHOST_RPC_URL: http://chain:8545
+      DEPLOY_OUT_DIR: /chain/deployments
+      ABI_OUT_DIR: /chain/abi
+    volumes:
+      - chain_artifacts:/chain
+    # Idempotent: only deploys + seeds if the shared volume has no addresses yet.
+    # To force a fresh deploy, remove the chain_artifacts volume (see deploy/manage.sh nuke).
+    command:
+      - sh
+      - -c
+      - |
+        if [ -f /chain/deployments/localhost.json ]; then
+          echo "[contracts-deploy] addresses already present, skipping";
+        else
+          npx hardhat run scripts/deploy.js --network localhost &&
+          npx hardhat run scripts/seed-demo-data.js --network localhost;
+        fi
+    restart: "no"
+
+  backend:
+    build:
+      context: ../backend
+    image: civiledger-backend
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      contracts-deploy:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env.production}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-civiledger}
+      DB_USER: ${DB_USER:-civiledger}
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      DB_DIALECT: postgres
+      AUTO_MIGRATE: "true"
+      SEED_ON_START: ${SEED_ON_START:-true}
+      BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL:-http://chain:8545}
+      BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK:-localhost}
+      DEPLOYMENTS_FILE: ${DEPLOYMENTS_FILE:-/chain/deployments/localhost.json}
+      CONTRACTS_ABI_DIR: ${CONTRACTS_ABI_DIR:-/chain/abi}
+      # Local chain: keys are derived from the standard Hardhat mnemonic. For Amoy,
+      # set DERIVE_LOCAL_KEYS=false and provide the four *_PRIVATE_KEY values.
+      DERIVE_LOCAL_KEYS: ${DERIVE_LOCAL_KEYS:-true}
+      ADMIN_PRIVATE_KEY: ${ADMIN_PRIVATE_KEY:-}
+      IDENTITY_AUTHORITY_PRIVATE_KEY: ${IDENTITY_AUTHORITY_PRIVATE_KEY:-}
+      EDUCATION_AUTHORITY_PRIVATE_KEY: ${EDUCATION_AUTHORITY_PRIVATE_KEY:-}
+      TRANSPORT_AUTHORITY_PRIVATE_KEY: ${TRANSPORT_AUTHORITY_PRIVATE_KEY:-}
+      CORS_ORIGIN: ${FRONTEND_URL:?set FRONTEND_URL (the Cloudflare Pages URL) in deploy/.env.production}
+      APP_BASE_URL: ${FRONTEND_URL:?}
+    volumes:
+      - chain_artifacts:/chain:ro
+    # Bound to localhost by default; Caddy is the public front door. Set
+    # BACKEND_BIND=0.0.0.0 to expose the raw HTTP port on the droplet IP.
+    ports:
+      - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-4000}:4000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME (e.g. 203-0-113-10.sslip.io) in deploy/.env.production}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  chain_artifacts:
+  caddy_data:
+  caddy_config:

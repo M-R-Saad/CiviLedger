@@ -10,6 +10,7 @@
     "lint": "eslint src --ext ts,tsx"
   },
   "dependencies": {
+    "@iconify/react": "^6.0.2",
     "axios": "^1.7.4",
     "ethers": "^6.13.1",
     "html5-qrcode": "^2.3.8",

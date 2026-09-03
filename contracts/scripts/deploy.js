@@ -36,10 +36,14 @@ async function main() {
   await consentAudit.waitForDeployment();
   console.log("ConsentAudit deployed to:", consentAudit.target);
 
-  // Write addresses to deployments/<network>.json
+  // Write addresses to deployments/<network>.json.
+  // DEPLOY_OUT_DIR / ABI_OUT_DIR let Docker redirect these to a shared volume the
+  // backend container also mounts. Defaults keep the local dev layout unchanged.
   const network = hre.network.name;
-  const deploymentsDir = path.join(__dirname, "..", "deployments");
-  if (!fs.existsSync(deploymentsDir)) fs.mkdirSync(deploymentsDir);
+  const deploymentsDir = process.env.DEPLOY_OUT_DIR
+    ? path.resolve(process.env.DEPLOY_OUT_DIR)
+    : path.join(__dirname, "..", "deployments");
+  if (!fs.existsSync(deploymentsDir)) fs.mkdirSync(deploymentsDir, { recursive: true });
 
   const output = {
     network,
@@ -55,11 +59,13 @@ async function main() {
   };
 
   fs.writeFileSync(path.join(deploymentsDir, `${network}.json`), JSON.stringify(output, null, 2));
-  console.log(`\nAddresses written to deployments/${network}.json`);
+  console.log(`\nAddresses written to ${path.join(deploymentsDir, `${network}.json`)}`);
 
-  // Copy ABIs into backend/src/contracts-abi so the backend can call these contracts
+  // Copy ABIs where the backend can read them (default: backend/src/contracts-abi).
   const artifactsDir = path.join(__dirname, "..", "artifacts", "contracts");
-  const backendAbiDir = path.join(__dirname, "..", "..", "backend", "src", "contracts-abi");
+  const backendAbiDir = process.env.ABI_OUT_DIR
+    ? path.resolve(process.env.ABI_OUT_DIR)
+    : path.join(__dirname, "..", "..", "backend", "src", "contracts-abi");
   if (!fs.existsSync(backendAbiDir)) fs.mkdirSync(backendAbiDir, { recursive: true });
 
   const contractNames = ["Governance", "IssuerRegistry", "CredentialRegistry", "CredentialStatus", "ConsentAudit"];

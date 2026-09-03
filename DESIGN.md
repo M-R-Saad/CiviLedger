@@ -5,9 +5,19 @@ theme and no token layer, so this file seeds the system rather than documenting 
 existing one. Once the token layer and primitives are built, reconcile the exact
 values here with the code (`/impeccable document` can regenerate from the real CSS).
 
-Register: **product**. Color strategy: **Restrained** (tinted neutrals plus one accent
-under 10% of any surface). Reference lane: Stripe dashboard, GOV.UK Design System,
-Linear. The look is a registry office, not a launch.
+Two registers, one system:
+
+- **Marketing site** (`/` landing, anything explaining CiviLedger to a newcomer):
+  **brand** register. Color strategy up to **Committed** (one strong color field can carry
+  a hero). Real photography. Generous layout, larger type, gentle scroll motion. Warm and
+  inviting. Reference lane: GOV.UK / Singapore GovTech start pages with real imagery,
+  Nava PBC, code.gov, not Vercel-with-orbs.
+- **App** (dashboards, wallet, verifier, oversight): **product** register. Color strategy
+  **Restrained** (tinted neutrals plus one accent under ~10% of any surface). Calm and
+  task-focused. Reference lane: Stripe dashboard, Linear, GOV.UK Design System. Friendly,
+  never cold: a real icon set, warm empty states, avatars. No marketing imagery.
+
+Everything below applies to both unless a subsection says "marketing" or "app".
 
 ---
 
@@ -76,8 +86,23 @@ OKLCH. All text tokens are AA (>= 4.5:1) on `--bg` and on `--surface`.
   --info-fg:         var(--accent);
   --info-bg:         var(--accent-quiet);
   --info-border:     var(--accent-border);
+
+  /* Warm supporting fill — marketing section bands, soft callouts, image mats.
+     Keeps the site from reading cold without adding a second brand colour. */
+  --warm-bg:         oklch(0.963 0.022 65);
+  --warm-border:     oklch(0.88  0.030 65);
+
+  /* Marketing hero band (Committed). Deep, calm, confident. Text on it is --warm-bg. */
+  --hero-bg:         oklch(0.31  0.055 265);
+  --hero-fg:         oklch(0.97  0.010 75);
+  --hero-fg-muted:   oklch(0.84  0.020 265);
 }
 ```
+
+**App:** Restrained. Accent appears only on primary buttons, current selection, active
+nav, links, focused controls. **Marketing:** may run a Committed hero band
+(`--hero-bg`) and warm section fills (`--warm-bg`); still no gradient text, still one
+accent hue.
 
 ### Role mapping
 
@@ -112,19 +137,22 @@ proportions, so the two languages sit together without a visible seam.
   weights 400 / 500 / 600 only. Verify Bengali rendering at each weight before locking;
   fall back to `"Noto Sans Bengali"` + system if Anek's Bengali hinting disappoints.
 - **Mono family (hashes, addresses, tokens, tx ids):** `ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace`. No webfont.
-- Do not use a display face. Product UI does not need heading/body pairing.
+- **No separate display face.** The Anek family at weight 600 carries marketing headlines
+  too; a second typeface is not needed and Anek covers both scripts. Marketing may push
+  size and use `clamp()` for the H1 only (bounded, max ≤ 2.5× min).
 
-### Scale — fixed rem, ratio ~1.2
+### Scale — fixed rem in the app, one fluid step on marketing
 
 | Token | Size / line-height | Use |
 |---|---|---|
 | `text-xs`  | 12 / 16 | dense table metadata, timestamps, legal |
 | `text-sm`  | 13 / 20 | secondary text, helper text, table cells |
 | `text-base`| 14 / 22 | body default, form values, most UI |
-| `text-md`  | 16 / 24 | emphasised body, card titles |
-| `text-lg`  | 20 / 28 | section headings |
-| `text-xl`  | 25 / 32 | page title |
-| `text-2xl` | 31 / 38 | the single largest thing on a screen, rare |
+| `text-md`  | 16 / 24 | emphasised body, card titles, marketing body |
+| `text-lg`  | 20 / 28 | section headings (app) |
+| `text-xl`  | 25 / 32 | page title (app), marketing section headings |
+| `text-2xl` | 31 / 38 | largest thing on an app screen, rare |
+| `text-hero`| `clamp(2rem, 1.3rem + 3vw, 3.25rem)` / 1.1 | marketing H1 only |
 
 Weights: 400 body, 500 labels and table headers and buttons, 600 headings and the one
 key number on a screen. Hierarchy comes from weight plus size, never from color alone.
@@ -152,26 +180,33 @@ inside a group, 12 in form fields. Same padding everywhere is the current proble
 
 ## 5. Elevation & radius
 
-Borders do the work, not shadows. This is a registry, not a stack of floating cards.
-
 - `--radius-control: 6px` (buttons, inputs, pills)
 - `--radius-container: 10px` (panels, tables, modals)
+- `--radius-media: 14px` (marketing images and image mats)
 - Full round only for avatars and dot indicators.
-- One shadow token, for true overlays only (popover, menu, modal, toast):
-  `--shadow-overlay: 0 1px 2px oklch(0.24 0.01 75 / 0.08), 0 8px 24px oklch(0.24 0.01 75 / 0.10)`
-- Panels and table containers get a 1px `--border`, no shadow.
+- `--shadow-overlay: 0 1px 2px oklch(0.24 0.01 75 / 0.08), 0 8px 24px oklch(0.24 0.01 75 / 0.10)`
+  for true overlays (popover, menu, modal, toast).
+- `--shadow-media: 0 1px 2px oklch(0.24 0.01 75 / 0.06), 0 12px 32px oklch(0.24 0.01 75 / 0.10)`
+  for marketing imagery and the occasional lifted marketing card. Soft, single source.
+
+**App:** borders do the work. Panels and tables get a 1px `--border`, no shadow.
+**Marketing:** photos and hero cards may carry `--shadow-media`; keep it to imagery and
+one or two focal elements per view, never on every card.
 
 ---
 
 ## 6. Motion
 
-150–200ms, `ease-out` (`cubic-bezier(0.2, 0, 0, 1)`). No bounce, no elastic, no
-page-load choreography.
+150–200ms, `ease-out` (`cubic-bezier(0.2, 0, 0, 1)`). No bounce, no elastic.
 
-- Motion conveys state only: menu open/close, row expand, toast in/out, status change
-  flash on a pill after an action succeeds.
+- **App:** motion conveys state only: menu open/close, row expand, toast in/out, status
+  change flash on a pill after an action succeeds. No page-load choreography.
+- **Marketing:** a single gentle on-scroll reveal is allowed (opacity 0 to 1, translateY
+  8px to 0, ~400ms, `IntersectionObserver`, once). No parallax, no staggered cascades of
+  ten elements, no counting-up numbers.
 - Never animate layout properties. Expanding rows transition `grid-template-rows`.
-- Everything non-essential is wrapped in `@media (prefers-reduced-motion: no-preference)`.
+- Everything non-essential is wrapped in `@media (prefers-reduced-motion: no-preference)`
+  and must render correctly with motion disabled (content visible, not stuck at opacity 0).
 
 ---
 
@@ -214,15 +249,49 @@ One implementation each, in `frontend/src/components/ui/`.
 
 ## 8. Iconography
 
-One set, one weight. `lucide` (1.5px stroke) or Heroicons outline. 16px in dense UI,
-20px in nav and buttons. Icons support labels, they do not replace them. No filled/
-duotone/emoji icons in the product surface (the current emoji role labels go).
+**Iconify via `@iconify/react`.** One collection: **Lucide** (`lucide:*`), 1.5px stroke,
+one weight, no mixing collections. Wrap it once in `components/ui/Icon.tsx` with size and
+`aria-hidden` defaults so call sites stay clean and the collection can be swapped in one
+place.
+
+- 16px in dense UI (table cells, inline), 18–20px in nav, buttons, list items, 24px+ for
+  marketing feature marks and empty-state spots.
+- Icons carry meaning and **support** labels, they do not replace them. Icon-only buttons
+  get an `aria-label`; decorative icons get `aria-hidden`.
+- No emoji anywhere in the product or the site. The old hand-rolled `icons.tsx` set is
+  deprecated; migrate call sites to `Icon` as screens are touched.
+- Common names: `lucide:shield-check`, `lucide:badge-check`, `lucide:wallet`,
+  `lucide:scan-line`, `lucide:building-2`, `lucide:file-check-2`, `lucide:key-round`,
+  `lucide:clock`, `lucide:arrow-right`, `lucide:external-link`, `lucide:copy`,
+  `lucide:check`, `lucide:x`, `lucide:circle-alert`, `lucide:info`.
+
+## 9. Imagery
+
+**Marketing only.** The app UI stays image-free apart from avatars and issuer marks;
+photos inside a dashboard are noise.
+
+- **Real photography of Bangladeshi people and civic life:** a graduate holding a degree,
+  a clerk at a service counter, someone checking a phone on a rickshaw, a university
+  courtyard, hands exchanging a document. Specific scenes, not "diverse team in a glass
+  office".
+- **Source:** Unsplash (free to use, no attribution required but credit the photographer
+  in a comment). Serve from `images.unsplash.com/photo-<id>` with
+  `?auto=format&fit=crop&w=<real width>&q=75`. **Verify every URL resolves before shipping
+  it** (WebFetch / browser); a guessed id ships as a broken image.
+- **Mechanics:** explicit `width`/`height` (or `aspect-ratio`) to prevent layout shift,
+  `loading="lazy"` and `decoding="async"` below the fold, `srcset` for 1x/2x, a
+  `--warm-bg` mat or `--radius-media` corners so a photo sits in the system rather than
+  floating. One decisive image per section; a collage of five mediocre ones is worse than
+  one strong one.
+- **Alt text is content:** "A graduate in a black gown holds a rolled degree certificate
+  outside a university building", not "graduation photo". Decorative-only images get
+  `alt=""`.
 
 ---
 
-## 9. Voice
+## 10. Voice
 
-Plain, calm, specific. Translated from keys in both languages.
+Plain, calm, specific, warm. Translated from keys in both languages.
 
 - Labels are nouns (`Credential type`, not `What kind?`). Buttons are verbs
   (`Issue credential`, `Revoke`).

@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+dev.sqlite
+coverage
+.eslintcache
+.git
+.gitignore
+Dockerfile
+.dockerignore

@@ -37,4 +37,13 @@
   --danger-fg:       oklch(0.50  0.17  25);
   --danger-bg:       oklch(0.960 0.030 25);
   --danger-border:   oklch(0.85  0.090 25);
+
+  /* Marketing-only: warm supporting fill + Committed hero band. */
+  --warm-bg:         oklch(0.966 0.014 82);
+  --warm-border:     oklch(0.89  0.022 82);
+  --hero-bg:         oklch(0.30  0.055 265);
+  --hero-fg:         oklch(0.97  0.010 75);
+  --hero-fg-muted:   oklch(0.83  0.022 265);
+
+  --shadow-media:    0 1px 2px oklch(0.24 0.01 75 / 0.06), 0 12px 32px oklch(0.24 0.01 75 / 0.10);
 }

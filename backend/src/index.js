@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const morgan = require("morgan");
 
 const { sequelize } = require("./models");
@@ -14,11 +15,29 @@ const credentialTypesRoutes = require("./routes/credential-types.routes");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-app.use(morgan("dev"));
+// Behind Caddy / a load balancer in production so req.ip and rate limiting work.
+if (process.env.TRUST_PROXY) {
+  app.set("trust proxy", Number(process.env.TRUST_PROXY) || 1);
+}
 
-app.get("/health", (req, res) => res.json({ status: "ok" }));
+app.use(helmet());
+
+// CORS_ORIGIN is a comma-separated allowlist of frontend origins in production.
+// Empty or "*" reflects the request origin (fine for local dev only).
+const allowedOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const corsOptions =
+  allowedOrigins.length === 0 || allowedOrigins.includes("*")
+    ? { origin: true }
+    : { origin: allowedOrigins };
+app.use(cors(corsOptions));
+
+app.use(express.json());
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+
+app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
 
 app.use("/auth", authRoutes);
 app.use("/issuer", issuerRoutes);
@@ -39,7 +58,24 @@ async function start() {
   try {
     await sequelize.authenticate();
     console.log("Database connection established.");
-    app.listen(PORT, () => console.log(`CiviLedger backend listening on http://localhost:${PORT}`));
+
+    const server = app.listen(PORT, "0.0.0.0", () =>
+      console.log(`CiviLedger backend listening on port ${PORT}`)
+    );
+
+    const shutdown = (signal) => {
+      console.log(`${signal} received, shutting down.`);
+      server.close(async () => {
+        try {
+          await sequelize.close();
+        } catch (e) {
+          console.error("Error closing DB pool:", e.message);
+        }
+        process.exit(0);
+      });
+      setTimeout(() => process.exit(1), 10000).unref();
+    };
+    ["SIGTERM", "SIGINT"].forEach((sig) => process.on(sig, () => shutdown(sig)));
   } catch (err) {
     console.error("Unable to start server:", err.message);
     process.exit(1);

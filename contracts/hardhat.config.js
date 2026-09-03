@@ -1,7 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
-const { AMOY_RPC_URL, DEPLOYER_PRIVATE_KEY } = process.env;
+const { AMOY_RPC_URL, DEPLOYER_PRIVATE_KEY, LOCALHOST_RPC_URL } = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -16,7 +16,8 @@ module.exports = {
       chainId: 31337
     },
     localhost: {
-      url: "http://127.0.0.1:8545",
+      // Override with LOCALHOST_RPC_URL in Docker (points at the "chain" service).
+      url: LOCALHOST_RPC_URL || "http://127.0.0.1:8545",
       chainId: 31337
     },
     // Free public testnet, used only for the final demo deployment (see docs/04_WORKFLOW.md, Phase 4)

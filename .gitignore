@@ -1,9 +1,15 @@
 node_modules/
 .env
 .env.local
+.env.production
+.env.production.local
 dist/
 build/
 *.log
+
+# Deployment secrets — real values live only on the droplet and in the
+# Cloudflare Pages dashboard, never in git.
+deploy/.env.production
 
 # Hardhat
 contracts/cache/

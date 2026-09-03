@@ -41,6 +41,15 @@ export default {
           bg: "var(--danger-bg)",
           border: "var(--danger-border)",
         },
+        warm: {
+          bg: "var(--warm-bg)",
+          border: "var(--warm-border)",
+        },
+        hero: {
+          bg: "var(--hero-bg)",
+          fg: "var(--hero-fg)",
+          "fg-muted": "var(--hero-fg-muted)",
+        },
       },
       fontFamily: {
         sans: [
@@ -70,14 +79,17 @@ export default {
         lg: ["1.25rem", "1.75rem"],
         xl: ["1.5625rem", "2rem"],
         "2xl": ["1.9375rem", "2.375rem"],
+        hero: ["clamp(2rem, 1.3rem + 3vw, 3.25rem)", "1.1"],
       },
       borderRadius: {
         control: "6px",
         container: "10px",
+        media: "14px",
       },
       boxShadow: {
         overlay:
           "0 1px 2px oklch(0.24 0.01 75 / 0.08), 0 8px 24px oklch(0.24 0.01 75 / 0.10)",
+        media: "var(--shadow-media)",
       },
     },
   },

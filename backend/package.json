@@ -7,16 +7,18 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "migrate": "npx sequelize-cli db:migrate",
-    "migrate:undo": "npx sequelize-cli db:migrate:undo",
-    "seed": "npx sequelize-cli db:seed:all"
+    "migrate": "sequelize-cli db:migrate",
+    "migrate:undo": "sequelize-cli db:migrate:undo",
+    "seed": "sequelize-cli db:seed:all"
   },
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
+    "helmet": "^7.1.0",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.1",
     "sequelize": "^6.37.3",
+    "sequelize-cli": "^6.6.2",
     "pg": "^8.12.0",
     "pg-hstore": "^2.3.4",
     "jsonwebtoken": "^9.0.2",
@@ -26,7 +28,6 @@
     "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4",
-    "sequelize-cli": "^6.6.2"
+    "nodemon": "^3.1.4"
   }
 }

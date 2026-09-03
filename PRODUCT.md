@@ -23,15 +23,23 @@ Success looks like: a verifier gets a correct answer in seconds without contacti
 
 ## Brand Personality
 
-Quiet, precise, institutional. This is a government-grade tool, not a product launch. Three words: **trustworthy, legible, unshowy**. It should feel closer to a well-run registry office than to a crypto application. Confidence comes from clarity and correctness, not decoration. When the system states a blockchain fact (a transaction, a status, the result of a check), it states it plainly and completely rather than reducing it to a single green tick.
+Trustworthy, clear, and human. CiviLedger is public infrastructure that ordinary people are meant to use, so it should feel approachable, not bureaucratic. Three words: **trustworthy, legible, warm**.
+
+Two surfaces, one voice:
+
+- **The marketing site** (`/` and anything explaining the system to a newcomer) is a real product website. It uses real photography of people and civic settings, confident color, generous layout, and plain language to make a first-time citizen or a procurement officer understand what this is and why it matters.
+- **The app** (dashboards, wallet, verifier, oversight) stays calm and focused so someone can finish their task without friction. It is friendly, not cold: a coherent icon set, warm microcopy, avatars for people, helpful empty states. It just does not carry marketing imagery or decoration.
+
+Confidence comes from clarity and from showing the work (real transactions, plain-language results), never from coldness and never from spectacle. When the system states a blockchain fact, it states it plainly and completely rather than reducing it to a single green tick.
 
 ## Anti-references
 
-- **Neon-on-black crypto and web3 dashboards.** No glow, no gradient accents, no treating "on-chain" as spectacle.
-- **SaaS marketing aesthetics leaking into the app:** hero-metric templates, gradient text, endless icon-heading-text card grids, landing-page hero sections inside a tool.
+- **Neon-on-black crypto and web3 dashboards.** No glow, no gradient text, no glassmorphism, no floating blurred orbs, no treating "on-chain" as spectacle.
+- **Marketing chrome inside the app.** No hero sections, hero-metric templates, or explanatory landing-page blocks inside a dashboard. The app is a tool; the website is the website.
 - **The current prototype look:** ad-hoc Tailwind utilities with no token layer, a single flat type size, one white rounded card for every kind of content, raw enum strings (`ISSUER_NOT_TRUSTED`, `MEMBER_PROPOSED`) shown to users, truncated UUIDs as the primary identifier of a table row, demo account passwords and wallet addresses printed in the shipped UI.
-- **Consumer-fintech playfulness:** confetti, mascots, chatty or jokey microcopy. This is civic infrastructure.
-- **Flag-literal palette.** Do not build the identity from Bangladesh green and red. Any cultural reading should come from language, typography, and content, not a national-colours theme.
+- **Consumer-fintech playfulness:** confetti, mascots, jokey microcopy, celebration animations. Warm and serious, not cute. This is civic infrastructure.
+- **Flag-literal palette.** Do not build the identity from Bangladesh green and red. Cultural reading comes from photography, language, and content, not a national-colours theme.
+- **Stock-photo tokenism.** Generic handshake-in-front-of-glass-building images, or a wall of identical smiling headshots. Pick specific, real, Bangladeshi civic and campus scenes; one decisive image per section beats a collage.
 - **Bloomberg-terminal density for its own sake.** Dense is welcome; hostile and unscannable is not.
 
 ## Design Principles
@@ -40,8 +48,9 @@ Quiet, precise, institutional. This is a government-grade tool, not a product la
 2. **Legible over dense, dense over sparse.** Tables and forms in this product carry a lot and that is fine, but they stay scannable. Whitespace is used to group related things, not to pad everything equally.
 3. **Plain bilingual language.** Every user-facing string is Bangla and English, plain-worded, and rendered from a translation key rather than a raw database value. Copy is written for a nervous citizen, not for an engineer.
 4. **Show the work.** When the system makes a trust claim, it shows what was checked and links to the real transactions. No black-box result screens.
-5. **One vocabulary everywhere.** One button component, one field component, one status pill, one table, one empty state, one alert, used identically across all four role views. If two screens solve the same problem differently, one of them is wrong.
+5. **One vocabulary everywhere.** One button component, one field component, one status pill, one table, one empty state, one alert, one icon set, used identically across all four role views. If two screens solve the same problem differently, one of them is wrong.
 6. **Accessible by construction.** Keyboard completeness, visible focus, AA contrast in both languages, honoured reduced-motion, and correctly associated form labels and errors are defaults built in from the first component, not a pass at the end.
+7. **Human by default.** A consistent icon set, real photography on the marketing site, avatars for people, and plain bilingual language lower the barrier to a public service. Warmth is not decoration here; it is what makes a nervous first-time citizen willing to continue.
 
 ## Accessibility & Inclusion
 

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Runs on the droplet's bare repo after every push. Checks out `main` and
+# (re)builds the stack. Installed by deploy/setup-droplet.sh; self-updates on push.
+set -euo pipefail
+unset GIT_DIR || true
+
+APP_DIR="/srv/civiledger"
+BARE_REPO="/srv/civiledger.git"
+BRANCH="main"
+DEPLOY_DIR="$APP_DIR/deploy"
+COMPOSE_ARGS="--env-file .env.production -f docker-compose.prod.yml"
+
+while read -r _old _new ref; do
+  if [ "$ref" != "refs/heads/$BRANCH" ]; then
+    echo "post-receive: $ref pushed; only $BRANCH deploys. Skipping."
+    continue
+  fi
+
+  echo "==> checking out $BRANCH into $APP_DIR"
+  git --work-tree="$APP_DIR" --git-dir="$BARE_REPO" checkout -f "$BRANCH"
+
+  # Keep this hook in sync with the repo copy.
+  if [ -f "$DEPLOY_DIR/hooks/post-receive" ] && \
+     ! cmp -s "$DEPLOY_DIR/hooks/post-receive" "$BARE_REPO/hooks/post-receive"; then
+    cp "$DEPLOY_DIR/hooks/post-receive" "$BARE_REPO/hooks/post-receive"
+    chmod +x "$BARE_REPO/hooks/post-receive"
+    echo "==> deploy hook updated (takes effect next push)"
+  fi
+
+  if [ ! -f "$DEPLOY_DIR/.env.production" ]; then
+    echo "!! $DEPLOY_DIR/.env.production is missing."
+    echo "   On the droplet:"
+    echo "     cp $DEPLOY_DIR/.env.production.example $DEPLOY_DIR/.env.production"
+    echo "     \$EDITOR $DEPLOY_DIR/.env.production   # see docs/06_DEPLOYMENT.md"
+    echo "   Then push again."
+    exit 1
+  fi
+
+  echo "==> docker compose up -d --build"
+  cd "$DEPLOY_DIR"
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_ARGS up -d --build --remove-orphans
+
+  docker image prune -f >/dev/null 2>&1 || true
+
+  echo "==> current state:"
+  sleep 3
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_ARGS ps
+  echo "==> deploy complete"
+done

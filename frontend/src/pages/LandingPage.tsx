@@ -1,305 +1,348 @@
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/I18nProvider";
+import { Icon } from "../components/ui/Icon";
+import { Reveal } from "../components/ui/Reveal";
 import { LanguageToggle } from "../components/ui/LanguageToggle";
-import "../styles/landing.css";
+import { landingImages } from "../lib/landingImages";
 
-/* ---------- icon sub-components (inline SVG, same weight as icons.tsx) ---------- */
+const primaryLink =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-control bg-accent px-5 text-md font-medium text-paper transition-colors duration-150 ease-out hover:bg-accent-hover";
+const secondaryLink =
+  "inline-flex h-11 items-center gap-2 rounded-control border border-line-strong bg-surface px-5 text-md font-medium text-ink transition-colors duration-150 ease-out hover:bg-surface-sunken";
 
-function IconShield(props: React.SVGProps<SVGSVGElement>) {
+function Section({
+  id,
+  tone = "plain",
+  children,
+}: {
+  id: string;
+  tone?: "plain" | "sunken";
+  children: React.ReactNode;
+}) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
+    <section
+      id={id}
+      className={tone === "sunken" ? "border-t border-line bg-surface-sunken" : "bg-bg"}
+    >
+      <div className="mx-auto max-w-5xl px-6 py-14 sm:py-20">{children}</div>
+    </section>
   );
 }
 
-function IconFingerprint(props: React.SVGProps<SVGSVGElement>) {
+function Figure({
+  image,
+  alt,
+  priority,
+  sizes,
+  aspect = "aspect-[4/3]",
+  position = "object-center",
+}: {
+  image: (typeof landingImages)[keyof typeof landingImages];
+  alt: string;
+  priority?: boolean;
+  sizes: string;
+  aspect?: string;
+  position?: string;
+}) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4" />
-      <path d="M5 19.5C5.5 18 6 15 6 12c0-3.5 2.5-6 6-6 3 0 5 2 5.5 4" />
-      <path d="M8.5 22c.4-2 .5-5 .5-7.5 0-3 1.5-5 3.5-5 1.5 0 3 1.2 3 3" />
-      <path d="M14 13c.5 3-.5 7-2 9" />
-      <path d="M22 16.5c-1 .5-2 2-3.5 4" />
-    </svg>
+    <div className="relative">
+      <div
+        className="absolute -inset-3 rounded-media bg-warm-bg sm:-inset-4"
+        aria-hidden="true"
+      />
+      <img
+        src={image.src}
+        srcSet={image.srcSet}
+        sizes={sizes}
+        width={image.width}
+        height={image.height}
+        alt={alt}
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
+        className={`relative w-full rounded-media object-cover shadow-media ${aspect} ${position}`}
+      />
+    </div>
   );
 }
-
-function IconZap(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  );
-}
-
-function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M5 12h14M12 5l7 7-7 7" />
-    </svg>
-  );
-}
-
-function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
-
-/* ---------- data ---------- */
-
-const FEATURES = [
-  {
-    icon: IconShield,
-    title: "Tamper-Proof",
-    description: "Every credential is anchored on-chain with a cryptographic hash. Any alteration is instantly detectable.",
-    gradient: "landing-feature-gradient--shield",
-  },
-  {
-    icon: IconFingerprint,
-    title: "Citizen-Controlled",
-    description: "Citizens own their credentials in a digital wallet. They choose what to share and with whom — no middleman.",
-    gradient: "landing-feature-gradient--fingerprint",
-  },
-  {
-    icon: IconZap,
-    title: "Instant Verification",
-    description: "Verifiers confirm authenticity in seconds with a QR scan — no phone calls, no waiting for paper copies.",
-    gradient: "landing-feature-gradient--zap",
-  },
-] as const;
-
-const STEPS = [
-  { num: "01", label: "Issue", desc: "A government authority issues a digital credential and anchors its hash on the blockchain." },
-  { num: "02", label: "Hold", desc: "The citizen receives the credential in their CiviLedger wallet, accessible anytime, anywhere." },
-  { num: "03", label: "Share", desc: "The citizen generates a time-limited, purpose-specific presentation link or QR code." },
-  { num: "04", label: "Verify", desc: "The verifier scans the code and instantly confirms authenticity against the on-chain record." },
-] as const;
-
-const ROLES = [
-  {
-    emoji: "🏛️",
-    title: "I'm an Institution",
-    subtitle: "Issue and manage credentials for citizens",
-    to: "/login",
-    cta: "Log in as Issuer",
-    color: "landing-role--institution",
-  },
-  {
-    emoji: "👤",
-    title: "I'm a Citizen",
-    subtitle: "View, hold, and share your credentials",
-    to: "/connect-wallet",
-    cta: "Connect Wallet",
-    color: "landing-role--citizen",
-  },
-  {
-    emoji: "🔍",
-    title: "I'm a Verifier",
-    subtitle: "Instantly verify any credential's authenticity",
-    to: "/login",
-    cta: "Log in as Verifier",
-    color: "landing-role--verifier",
-  },
-] as const;
-
-const TECH_STACK = [
-  { label: "Solidity Smart Contracts", detail: "CredentialRegistry, IssuerRegistry, Governance" },
-  { label: "Ethereum / Hardhat", detail: "On-chain anchoring & status management" },
-  { label: "Node.js + PostgreSQL", detail: "Off-chain credential storage & API" },
-  { label: "React + TypeScript", detail: "Role-based dashboards & citizen wallet" },
-] as const;
-
-/* ---------- component ---------- */
 
 export default function LandingPage() {
   const { t } = useT();
 
+  const points = [
+    { key: "tamperproof", icon: "shield-check" },
+    { key: "citizen", icon: "user-check" },
+    { key: "instant", icon: "zap" },
+  ];
+
+  const steps = [
+    { key: "issue", icon: "file-check-2" },
+    { key: "hold", icon: "wallet" },
+    { key: "share", icon: "share-2" },
+    { key: "verify", icon: "scan-line" },
+  ];
+
+  const roles = [
+    { key: "institution", icon: "building-2", to: "/login" },
+    { key: "citizen", icon: "wallet", to: "/connect-wallet" },
+    { key: "verifier", icon: "search-check", to: "/login" },
+  ];
+
   return (
-    <div className="landing-page">
-      {/* -------- NAV -------- */}
-      <nav className="landing-nav">
-        <div className="landing-nav__inner">
-          <span className="landing-nav__brand">{t("app.name")}</span>
-          <div className="landing-nav__actions">
+    <div className="min-h-screen bg-bg text-ink">
+      <header className="sticky top-0 z-30 border-b border-line bg-surface">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
+          <span className="text-md font-semibold text-ink">{t("app.name")}</span>
+          <div className="flex items-center gap-3">
             <LanguageToggle />
-            <Link to="/login" className="landing-nav__link">
+            <Link
+              to="/login"
+              className="rounded-control border border-line-strong px-3 py-1.5 text-sm text-ink transition-colors hover:bg-surface-sunken"
+            >
               {t("nav.logIn")}
             </Link>
           </div>
         </div>
-      </nav>
+      </header>
 
-      {/* -------- HERO -------- */}
-      <section className="landing-hero" id="landing-hero">
-        <div className="landing-hero__bg" aria-hidden="true">
-          <div className="landing-hero__orb landing-hero__orb--1" />
-          <div className="landing-hero__orb landing-hero__orb--2" />
-          <div className="landing-hero__orb landing-hero__orb--3" />
-        </div>
-        <div className="landing-hero__content">
-          <span className="landing-hero__badge">
-            🔗 Powered by Blockchain
-          </span>
-          <h1 className="landing-hero__title">
-            Decentralized Credential
-            <br />
-            <span className="landing-hero__title-accent">Verification for Citizens</span>
-          </h1>
-          <p className="landing-hero__subtitle">
-            CiviLedger brings tamper-proof, citizen-controlled, and instantly verifiable government credentials to Bangladesh — replacing paper documents with blockchain-anchored digital trust.
-          </p>
-          <div className="landing-hero__cta-row">
-            <Link to="/login" className="landing-btn landing-btn--primary">
-              Get Started
-              <IconArrowRight className="landing-btn__icon" />
-            </Link>
-            <a href="#how-it-works" className="landing-btn landing-btn--ghost">
-              How it works
-              <IconChevronDown className="landing-btn__icon" />
-            </a>
+      {/* Hero */}
+      <section className="bg-warm-bg">
+        <div className="mx-auto grid max-w-5xl items-center gap-10 px-6 py-14 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+          <div>
+            <h1 className="text-balance text-hero font-semibold text-ink">
+              {t("landing.hero.title")}
+            </h1>
+            <p className="mt-5 max-w-[54ch] text-pretty text-md leading-7 text-ink-muted">
+              {t("landing.hero.body")}
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to="/login" className={primaryLink}>
+                {t("landing.hero.ctaPrimary")}
+                <Icon name="arrow-right" size={18} />
+              </Link>
+              <a href="#how-it-works" className={secondaryLink}>
+                {t("landing.hero.ctaSecondary")}
+                <Icon name="arrow-down" size={18} />
+              </a>
+            </div>
           </div>
+          <Figure
+            image={landingImages.hero}
+            alt={t("landing.hero.imageAlt")}
+            priority
+            aspect="aspect-[4/3]"
+            position="object-[50%_25%]"
+            sizes="(min-width: 1024px) 42vw, 100vw"
+          />
         </div>
       </section>
 
-      {/* -------- FEATURES -------- */}
-      <section className="landing-section" id="features">
-        <div className="landing-section__inner">
-          <p className="landing-section__eyebrow">Why CiviLedger?</p>
-          <h2 className="landing-section__heading">
-            A new standard for document trust
+      {/* What it does */}
+      <Section id="what" tone="sunken">
+        <Reveal>
+          <h2 className="max-w-2xl text-balance text-xl font-semibold text-ink">
+            {t("landing.what.heading")}
           </h2>
-          <div className="landing-features">
-            {FEATURES.map((f) => (
-              <div key={f.title} className={`landing-feature ${f.gradient}`}>
-                <div className="landing-feature__icon-wrap">
-                  <f.icon className="landing-feature__icon" />
-                </div>
-                <h3 className="landing-feature__title">{f.title}</h3>
-                <p className="landing-feature__desc">{f.description}</p>
+          <div className="mt-10 grid gap-x-8 gap-y-10 sm:grid-cols-3">
+            {points.map((p) => (
+              <div key={p.key}>
+                <Icon name={p.icon} size={24} className="text-accent" />
+                <h3 className="mt-3 text-base font-semibold text-ink">
+                  {t(`landing.what.${p.key}.title`)}
+                </h3>
+                <p className="mt-2 text-pretty text-sm leading-6 text-ink-muted">
+                  {t(`landing.what.${p.key}.body`)}
+                </p>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </Reveal>
+      </Section>
 
-      {/* -------- HOW IT WORKS -------- */}
-      <section className="landing-section landing-section--alt" id="how-it-works">
-        <div className="landing-section__inner">
-          <p className="landing-section__eyebrow">The Flow</p>
-          <h2 className="landing-section__heading">
-            How CiviLedger works
-          </h2>
-          <div className="landing-steps">
-            {STEPS.map((s, i) => (
-              <div key={s.num} className="landing-step">
-                <div className="landing-step__num">{s.num}</div>
-                <h3 className="landing-step__label">{s.label}</h3>
-                <p className="landing-step__desc">{s.desc}</p>
-                {i < STEPS.length - 1 && (
-                  <div className="landing-step__connector" aria-hidden="true">
-                    <IconArrowRight className="landing-step__connector-icon" />
+      {/* How it works */}
+      <Section id="how-it-works">
+        <div className="grid items-center gap-10 lg:grid-cols-[0.8fr_1fr] lg:gap-16">
+          <Figure
+            image={landingImages.graduate}
+            alt={t("landing.how.imageAlt")}
+            aspect="aspect-[4/5]"
+            sizes="(min-width: 1024px) 36vw, 100vw"
+          />
+          <Reveal>
+            <h2 className="text-xl font-semibold text-ink">
+              {t("landing.how.heading")}
+            </h2>
+            <ol className="mt-8 space-y-6">
+              {steps.map((s, i) => (
+                <li key={s.key} className="flex gap-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-accent-quiet text-accent">
+                    <Icon name={s.icon} size={18} />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-semibold text-ink">
+                      <span className="tabular-nums text-ink-subtle">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>{" "}
+                      {t(`landing.how.${s.key}.title`)}
+                    </h3>
+                    <p className="mt-1 text-pretty text-sm leading-6 text-ink-muted">
+                      {t(`landing.how.${s.key}.body`)}
+                    </p>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                </li>
+              ))}
+            </ol>
+          </Reveal>
         </div>
-      </section>
+      </Section>
 
-      {/* -------- ROLE ENTRY -------- */}
-      <section className="landing-section" id="get-started">
-        <div className="landing-section__inner">
-          <p className="landing-section__eyebrow">Get Started</p>
-          <h2 className="landing-section__heading">
-            Choose your role
+      {/* Role entry */}
+      <Section id="get-started" tone="sunken">
+        <Reveal>
+          <h2 className="text-xl font-semibold text-ink">
+            {t("landing.roles.heading")}
           </h2>
-          <div className="landing-roles">
-            {ROLES.map((r) => (
-              <Link key={r.title} to={r.to} className={`landing-role ${r.color}`}>
-                <span className="landing-role__emoji">{r.emoji}</span>
-                <h3 className="landing-role__title">{r.title}</h3>
-                <p className="landing-role__subtitle">{r.subtitle}</p>
-                <span className="landing-role__cta">
-                  {r.cta}
-                  <IconArrowRight className="landing-role__cta-icon" />
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {roles.map((r) => (
+              <Link
+                key={r.key}
+                to={r.to}
+                className="group flex flex-col rounded-container border border-line bg-surface p-5 transition-colors duration-150 ease-out hover:border-line-strong"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-control bg-accent-quiet text-accent">
+                  <Icon name={r.icon} size={20} />
+                </span>
+                <h3 className="mt-3 text-base font-semibold text-ink">
+                  {t(`landing.roles.${r.key}.title`)}
+                </h3>
+                <p className="mt-1 flex-1 text-sm leading-6 text-ink-muted">
+                  {t(`landing.roles.${r.key}.body`)}
+                </p>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
+                  {t(`landing.roles.${r.key}.cta`)}
+                  <Icon
+                    name="arrow-right"
+                    size={16}
+                    className="transition-transform duration-150 ease-out motion-safe:group-hover:translate-x-0.5"
+                  />
                 </span>
               </Link>
             ))}
           </div>
-        </div>
-      </section>
+        </Reveal>
+      </Section>
 
-      {/* -------- ARCHITECTURE -------- */}
-      <section className="landing-section landing-section--alt" id="architecture">
-        <div className="landing-section__inner">
-          <p className="landing-section__eyebrow">Under the Hood</p>
-          <h2 className="landing-section__heading">
-            Architecture at a glance
+      {/* Architecture */}
+      <Section id="architecture">
+        <Reveal>
+          <h2 className="text-xl font-semibold text-ink">
+            {t("landing.arch.heading")}
           </h2>
-          <div className="landing-arch">
-            <div className="landing-arch__diagram">
-              {/* Simplified architecture visual */}
-              <div className="landing-arch__layer landing-arch__layer--top">
-                <div className="landing-arch__node landing-arch__node--primary">
-                  <span className="landing-arch__node-emoji">🌐</span>
-                  <span className="landing-arch__node-label">React Frontend</span>
-                  <span className="landing-arch__node-detail">Role-based dashboards</span>
-                </div>
+          <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,340px)_1fr] lg:gap-16">
+            <div>
+              <ArchBox icon="layout-grid" labelKey="landing.arch.client.label" detailKey="landing.arch.client.detail" />
+              <ArchArrow />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <ArchBox icon="server" labelKey="landing.arch.app.label" detailKey="landing.arch.app.detail" />
+                <ArchBox icon="database" labelKey="landing.arch.db.label" detailKey="landing.arch.db.detail" sunken />
               </div>
-              <div className="landing-arch__connector-v" aria-hidden="true" />
-              <div className="landing-arch__layer landing-arch__layer--mid">
-                <div className="landing-arch__node">
-                  <span className="landing-arch__node-emoji">⚙️</span>
-                  <span className="landing-arch__node-label">Node.js API</span>
-                  <span className="landing-arch__node-detail">REST + JWT Auth</span>
-                </div>
-                <div className="landing-arch__node">
-                  <span className="landing-arch__node-emoji">🗄️</span>
-                  <span className="landing-arch__node-label">PostgreSQL</span>
-                  <span className="landing-arch__node-detail">Off-chain storage</span>
-                </div>
-              </div>
-              <div className="landing-arch__connector-v" aria-hidden="true" />
-              <div className="landing-arch__layer landing-arch__layer--bottom">
-                <div className="landing-arch__node landing-arch__node--chain">
-                  <span className="landing-arch__node-emoji">⛓️</span>
-                  <span className="landing-arch__node-label">Ethereum</span>
-                  <span className="landing-arch__node-detail">Smart Contracts</span>
-                </div>
-              </div>
+              <ArchArrow />
+              <ArchBox icon="link" labelKey="landing.arch.chain.label" detailKey="landing.arch.chain.detail" />
             </div>
-            <div className="landing-arch__list">
-              {TECH_STACK.map((t) => (
-                <div key={t.label} className="landing-arch__item">
-                  <span className="landing-arch__item-dot" />
-                  <div>
-                    <p className="landing-arch__item-label">{t.label}</p>
-                    <p className="landing-arch__item-detail">{t.detail}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="max-w-[60ch] text-pretty text-sm leading-6 text-ink-muted">
+              <p>{t("landing.arch.body")}</p>
+              <p className="mt-4 flex gap-2.5 rounded-container border border-warm-border bg-warm-bg p-4 text-ink">
+                <Icon
+                  name="shield-check"
+                  size={18}
+                  className="mt-0.5 shrink-0 text-ok-fg"
+                />
+                <span>{t("landing.arch.split")}</span>
+              </p>
             </div>
           </div>
+        </Reveal>
+      </Section>
+
+      {/* Closing */}
+      <section className="bg-hero-bg text-hero-fg">
+        <div className="mx-auto grid max-w-5xl items-center gap-10 px-6 py-14 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+          <div>
+            <h2 className="text-balance text-2xl font-semibold text-hero-fg">
+              {t("landing.cta.title")}
+            </h2>
+            <p className="mt-4 max-w-[52ch] text-pretty text-md leading-7 text-hero-fg-muted">
+              {t("landing.cta.body")}
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                to="/login"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-control bg-hero-fg px-5 text-md font-medium text-hero-bg transition-opacity duration-150 hover:opacity-90"
+              >
+                {t("landing.cta.primary")}
+                <Icon name="arrow-right" size={18} />
+              </Link>
+              <Link
+                to="/connect-wallet"
+                className="inline-flex h-11 items-center gap-2 rounded-control border border-hero-fg-muted px-5 text-md font-medium text-hero-fg transition-colors hover:border-hero-fg"
+              >
+                {t("landing.cta.secondary")}
+              </Link>
+            </div>
+          </div>
+          <img
+            src={landingImages.street.src}
+            srcSet={landingImages.street.srcSet}
+            sizes="(min-width: 1024px) 42vw, 100vw"
+            width={landingImages.street.width}
+            height={landingImages.street.height}
+            alt={t("landing.cta.imageAlt")}
+            loading="lazy"
+            decoding="async"
+            className="aspect-[3/2] w-full rounded-media object-cover shadow-media"
+          />
         </div>
       </section>
 
-      {/* -------- FOOTER -------- */}
-      <footer className="landing-footer">
-        <div className="landing-footer__inner">
-          <span className="landing-footer__brand">{t("app.name")}</span>
-          <p className="landing-footer__copy">
-            Decentralized Credential Verification for Bangladesh
-          </p>
-          <p className="landing-footer__copy landing-footer__copy--dim">
-            A blockchain-based public sector prototype · {new Date().getFullYear()}
-          </p>
+      <footer className="border-t border-line bg-surface">
+        <div className="mx-auto max-w-5xl px-6 py-10">
+          <p className="text-md font-semibold text-ink">{t("app.name")}</p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function ArchBox({
+  icon,
+  labelKey,
+  detailKey,
+  sunken,
+}: {
+  icon: string;
+  labelKey: string;
+  detailKey: string;
+  sunken?: boolean;
+}) {
+  const { t } = useT();
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-container border border-line px-4 py-3 ${
+        sunken ? "bg-surface-sunken" : "bg-surface"
+      }`}
+    >
+      <Icon name={icon} size={20} className="mt-0.5 shrink-0 text-ink-muted" />
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-ink">{t(labelKey)}</p>
+        <p className="text-xs text-ink-muted">{t(detailKey)}</p>
+      </div>
+    </div>
+  );
+}
+
+function ArchArrow() {
+  return (
+    <div className="flex justify-center py-1.5" aria-hidden="true">
+      <Icon name="arrow-down" size={16} className="text-ink-subtle" />
     </div>
   );
 }

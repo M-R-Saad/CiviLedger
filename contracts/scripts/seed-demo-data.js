@@ -6,9 +6,12 @@ const path = require("path");
 // credentials right away: Identity Authority, Education Authority, Transport Authority.
 async function main() {
   const network = hre.network.name;
-  const deploymentPath = path.join(__dirname, "..", "deployments", `${network}.json`);
+  const deploymentsDir = process.env.DEPLOY_OUT_DIR
+    ? path.resolve(process.env.DEPLOY_OUT_DIR)
+    : path.join(__dirname, "..", "deployments");
+  const deploymentPath = path.join(deploymentsDir, `${network}.json`);
   if (!fs.existsSync(deploymentPath)) {
-    throw new Error(`No deployment found for network "${network}". Run deploy.js first.`);
+    throw new Error(`No deployment found for network "${network}" at ${deploymentPath}. Run deploy.js first.`);
   }
   const { contracts } = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
 
