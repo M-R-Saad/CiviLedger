@@ -6,10 +6,12 @@ import { Button } from "../../components/common/Button";
 import { useToast } from "../../context/ToastProvider";
 import type { CredentialType } from "../../types";
 
-// Pre-filled demo citizens for quick selection during demos
+// Pre-filled demo citizens for quick selection during demos.
+// Addresses are Hardhat accounts 5, 6, 7 and must be EIP-55 checksummed exactly.
 const DEMO_CITIZENS = [
   { label: "Ahnaf Tahmid", wallet: "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc" },
   { label: "Sumaya Zaman", wallet: "0x976EA74026E726554dB657fA54763abd0C3a0aa9" },
+  { label: "Shahriar Morshed", wallet: "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955" },
 ];
 
 export default function IssueCredentialForm() {

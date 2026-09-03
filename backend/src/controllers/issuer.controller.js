@@ -1,6 +1,17 @@
-const { Credential, CredentialType, CredentialStatusEvent, User } = require("../models");
+const { ethers } = require("ethers");
+const { sequelize, Credential, CredentialType, CredentialStatusEvent, GovernanceEvent, User } = require("../models");
 const hashingService = require("../services/hashing.service");
 const blockchainService = require("../services/blockchain.service");
+
+// Case-insensitive lookup so a differently-cased (but valid) address still matches.
+function findUserByAddress(address) {
+  return User.findOne({
+    where: sequelize.where(
+      sequelize.fn("lower", sequelize.col("wallet_address")),
+      address.toLowerCase()
+    )
+  });
+}
 
 // POST /issuer/credentials
 async function issueCredential(req, res) {
@@ -10,14 +21,41 @@ async function issueCredential(req, res) {
     const credentialType = await CredentialType.findOne({ where: { code: credential_type_code } });
     if (!credentialType) return res.status(400).json({ error: "Unknown credential_type_code" });
 
-    // Auto-lookup citizen by wallet address if citizen_user_id not provided
+    // Resolve the citizen and a checksummed on-chain address. A malformed address
+    // is a clean 400 here rather than an ethers 500 deep in the chain call.
+    let citizenAddress = null;
+    if (citizen_wallet_address) {
+      try {
+        citizenAddress = ethers.getAddress(String(citizen_wallet_address).trim());
+      } catch {
+        return res.status(400).json({ error: "That is not a valid Ethereum wallet address." });
+      }
+    }
+
     let resolvedCitizenUserId = citizen_user_id;
-    if (!resolvedCitizenUserId && citizen_wallet_address) {
-      const citizen = await User.findOne({ where: { wallet_address: citizen_wallet_address } });
-      if (!citizen) return res.status(400).json({ error: `No citizen found with wallet address ${citizen_wallet_address}. The citizen must register first.` });
+    if (!resolvedCitizenUserId) {
+      if (!citizenAddress) {
+        return res.status(400).json({ error: "citizen_user_id or citizen_wallet_address is required." });
+      }
+      const citizen = await findUserByAddress(citizenAddress);
+      if (!citizen) {
+        return res.status(400).json({ error: `No citizen is registered with wallet address ${citizenAddress}.` });
+      }
       resolvedCitizenUserId = citizen.id;
     }
-    if (!resolvedCitizenUserId) return res.status(400).json({ error: "citizen_user_id or citizen_wallet_address is required" });
+
+    // Chain call needs the address; if only the id was given, fetch it.
+    if (!citizenAddress) {
+      const citizen = await User.findByPk(resolvedCitizenUserId);
+      if (!citizen || !citizen.wallet_address) {
+        return res.status(400).json({ error: "This citizen has no wallet address on file." });
+      }
+      try {
+        citizenAddress = ethers.getAddress(citizen.wallet_address);
+      } catch {
+        return res.status(400).json({ error: "This citizen's stored wallet address is invalid. An admin needs to correct it." });
+      }
+    }
 
     const payloadHash = hashingService.hashPayload(payload);
 
@@ -25,7 +63,7 @@ async function issueCredential(req, res) {
     const { txHash, anchorId } = await blockchainService.issueAnchor({
       credentialTypeCode: credential_type_code,
       payloadHash,
-      citizenAddress: citizen_wallet_address,
+      citizenAddress,
       expiresAt: expires_at ? Math.floor(new Date(expires_at).getTime() / 1000) : 0
     });
 
@@ -42,7 +80,6 @@ async function issueCredential(req, res) {
       status_cache: "ACTIVE"
     });
 
-    const { GovernanceEvent } = require("../models");
     await GovernanceEvent.create({
       event_type: "CREDENTIAL_ISSUED",
       organization_id: req.user.organization_id,
