@@ -78,4 +78,23 @@ contract IssuerRegistry {
     function isActiveIssuer(address issuerAddress) external view returns (bool) {
         return issuers[issuerAddress].status == IssuerStatus.ACTIVE;
     }
+
+    /// @notice True only if the address is an ACTIVE issuer AND is registered for
+    /// this exact credential type. This is the boundary CredentialRegistry enforces.
+    function isAuthorizedFor(address issuerAddress, string calldata credentialType)
+        external
+        view
+        returns (bool)
+    {
+        Issuer storage iss = issuers[issuerAddress];
+        if (iss.status != IssuerStatus.ACTIVE) return false;
+        bytes32 want = keccak256(bytes(credentialType));
+        uint256 len = iss.authorizedCredentialTypes.length;
+        for (uint256 i = 0; i < len; i++) {
+            if (keccak256(bytes(iss.authorizedCredentialTypes[i])) == want) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -8,7 +8,7 @@ const common = {
   database: process.env.DB_NAME,
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
-  dialect: process.env.DB_DIALECT || "postgres"
+  dialect: "postgres" // PostgreSQL only; the schema uses JSONB / ENUM / arrays
 };
 
 module.exports = {

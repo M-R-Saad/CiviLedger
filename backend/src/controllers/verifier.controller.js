@@ -2,6 +2,8 @@ const { Presentation, Credential, CredentialType, VerificationEvent, Organizatio
 const verificationService = require("../services/verification.service");
 const blockchainService = require("../services/blockchain.service");
 const { getSigner } = require("../config/blockchain");
+const { serverError, parseBody } = require("../utils/http");
+const S = require("../schemas");
 
 async function loadPresentation(token) {
   const presentation = await Presentation.findOne({ where: { share_token: token } });
@@ -46,16 +48,17 @@ async function checkPresentation(req, res) {
       }
     });
   } catch (err) {
-    console.error("checkPresentation failed:", err);
-    return res.status(500).json({ error: "verification_failed" });
+    return serverError(res, "verifier.checkPresentation", err);
   }
 }
 
 // POST /verifier/verify   body: { share_token }
 // Authenticated verifier: same checks, plus an on-chain receipt and a logged event.
 async function verifyPresentation(req, res) {
+  const data = parseBody(res, S.verify, req.body);
+  if (!data) return;
   try {
-    const { share_token } = req.body;
+    const { share_token } = data;
     const { presentation, credentials, notFound } = await loadPresentation(share_token);
     if (notFound) return res.status(404).json({ error: "not_found" });
 
@@ -100,8 +103,7 @@ async function verifyPresentation(req, res) {
       event
     });
   } catch (err) {
-    console.error("verifyPresentation failed:", err);
-    return res.status(500).json({ error: "verification_failed" });
+    return serverError(res, "verifier.verifyPresentation", err);
   }
 }
 
@@ -109,14 +111,13 @@ async function verifyPresentation(req, res) {
 async function getVerifierStats(req, res) {
   try {
     const where = { verifier_org_id: req.user.organization_id };
-    const [totalVerifications, passed, failed] = await Promise.all([
+    const [totalVerifications, passed] = await Promise.all([
       VerificationEvent.count({ where }),
-      VerificationEvent.count({ where: { ...where, result: "PASS" } }),
-      VerificationEvent.count({ where: { ...where, result: "FAIL" } }),
+      VerificationEvent.count({ where: { ...where, result: "VALID" } })
     ]);
-    res.json({ totalVerifications, passed, failed });
+    res.json({ totalVerifications, passed, failed: totalVerifications - passed });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "verifier.getVerifierStats", err);
   }
 }
 
@@ -133,7 +134,7 @@ async function getVerifierHistory(req, res) {
     });
     res.json(history);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "verifier.getVerifierHistory", err);
   }
 }
 

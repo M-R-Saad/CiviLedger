@@ -7,19 +7,31 @@ const { getContract, getSigner } = require("../config/blockchain");
  * per-organization keys held client-side instead of backend-held demo keys.
  */
 
-function issuerSignerFor(organizationCode) {
-  const envVarMap = {
-    IDENTITY: "IDENTITY_AUTHORITY_PRIVATE_KEY",
-    ACADEMIC_DEGREE: "EDUCATION_AUTHORITY_PRIVATE_KEY",
-    DRIVING_LICENSE: "TRANSPORT_AUTHORITY_PRIVATE_KEY"
-  };
-  const envVar = envVarMap[organizationCode];
-  if (!envVar) throw new Error(`No signer configured for credential type ${organizationCode}`);
-  return getSigner(envVar);
+// The signer is chosen by the acting *organisation*, not the credential type, so
+// the on-chain issuer always matches the off-chain issuer_org_id. Maps the org's
+// registered on-chain address to the key the backend signs with.
+const ORG_ADDRESS_TO_ENV = {
+  "0x70997970C51812dc3A010C7d01b50e0d17dc79C8": "IDENTITY_AUTHORITY_PRIVATE_KEY",
+  "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC": "EDUCATION_AUTHORITY_PRIVATE_KEY",
+  "0x90F79bf6EB2c4f870365E785982E1f101E93b906": "TRANSPORT_AUTHORITY_PRIVATE_KEY"
+};
+
+function issuerSignerForOrg(org) {
+  if (!org || !org.onchain_address) {
+    throw new Error("Organisation has no on-chain address configured");
+  }
+  let env = null;
+  try {
+    env = ORG_ADDRESS_TO_ENV[ethers.getAddress(org.onchain_address)];
+  } catch {
+    /* invalid address falls through to the throw below */
+  }
+  if (!env) throw new Error(`No signing key configured for organisation ${org.name || org.id}`);
+  return getSigner(env);
 }
 
-async function issueAnchor({ credentialTypeCode, payloadHash, citizenAddress, expiresAt }) {
-  const signer = issuerSignerFor(credentialTypeCode);
+async function issueAnchor({ issuerOrg, credentialTypeCode, payloadHash, citizenAddress, expiresAt }) {
+  const signer = issuerSignerForOrg(issuerOrg);
   const contract = getContract("CredentialRegistry", signer);
 
   const tx = await contract.issueAnchor(payloadHash, citizenAddress, credentialTypeCode, expiresAt || 0);
@@ -67,8 +79,8 @@ async function getIssuerInfo(address) {
   return { active: Boolean(active), name: data && data.name ? data.name : null };
 }
 
-async function changeStatus({ credentialTypeCode, anchorId, action, reason }) {
-  const signer = issuerSignerFor(credentialTypeCode);
+async function changeStatus({ issuerOrg, anchorId, action, reason }) {
+  const signer = issuerSignerForOrg(issuerOrg);
   const contract = getContract("CredentialStatus", signer);
 
   let tx;

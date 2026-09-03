@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 
 const { sequelize } = require("./models");
 
@@ -34,12 +35,28 @@ const corsOptions =
     : { origin: allowedOrigins };
 app.use(cors(corsOptions));
 
-app.use(express.json());
+app.use(express.json({ limit: "256kb" }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+
+// Rate limits: a loose global bucket, a tight one on the auth endpoints.
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 150,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Wait a few minutes and try again." }
+});
+app.use(globalLimiter);
 
 app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
 
-app.use("/auth", authRoutes);
+app.use("/auth", authLimiter, authRoutes);
 app.use("/issuer", issuerRoutes);
 app.use("/citizen", citizenRoutes);
 app.use("/verifier", verifierRoutes);

@@ -60,17 +60,26 @@ services:
       ABI_OUT_DIR: /chain/abi
     volumes:
       - chain_artifacts:/chain
-    # Idempotent: only deploys + seeds if the shared volume has no addresses yet.
-    # To force a fresh deploy, remove the chain_artifacts volume (see deploy/manage.sh nuke).
+    # Deploys + seeds unless the stored addresses still have live code behind them.
+    # The bundled chain is in-memory, so a chain restart wipes state while the
+    # volume keeps stale addresses; detect that and redeploy instead of skipping.
     command:
       - sh
       - -c
       - |
+        set -e
+        NEED_DEPLOY=1
         if [ -f /chain/deployments/localhost.json ]; then
-          echo "[contracts-deploy] addresses already present, skipping";
-        else
-          npx hardhat run scripts/deploy.js --network localhost &&
-          npx hardhat run scripts/seed-demo-data.js --network localhost;
+          if node scripts/check-deployed.js; then
+            echo "[contracts-deploy] contracts live at stored addresses, skipping";
+            NEED_DEPLOY=0
+          else
+            echo "[contracts-deploy] stored addresses have no code (chain was reset), redeploying";
+          fi
+        fi
+        if [ "$NEED_DEPLOY" = "1" ]; then
+          npx hardhat run scripts/deploy.js --network localhost
+          npx hardhat run scripts/seed-demo-data.js --network localhost
         fi
     restart: "no"
 

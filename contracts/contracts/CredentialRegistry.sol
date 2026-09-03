@@ -52,6 +52,10 @@ contract CredentialRegistry {
         uint256 expiresAt
     ) external onlyActiveIssuer returns (bytes32 anchorId) {
         require(citizen != address(0), "CredentialRegistry: zero citizen address");
+        require(
+            issuerRegistry.isAuthorizedFor(msg.sender, credentialType),
+            "CredentialRegistry: issuer not authorized for this credential type"
+        );
 
         anchorId = keccak256(abi.encodePacked(msg.sender, citizen, payloadHash, block.timestamp));
         require(!anchors[anchorId].exists, "CredentialRegistry: anchor collision, retry");

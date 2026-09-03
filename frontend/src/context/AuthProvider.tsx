@@ -27,7 +27,7 @@ const USER_KEY = "civiledger_user";
 interface AuthContextValue {
   user: AuthUser | null;
   loginWithPassword: (email: string, password: string) => Promise<AuthUser>;
-  loginWithWallet: (walletAddress: string) => Promise<AuthUser>;
+  loginWithWallet: (walletAddress: string, signature: string) => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -103,12 +103,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const loginWithWallet = useCallback(async (walletAddress: string) => {
-    const { data } = await authApi.walletLogin(walletAddress);
-    persist(data.token, data.user);
-    setUser(data.user);
-    return data.user as AuthUser;
-  }, []);
+  const loginWithWallet = useCallback(
+    async (walletAddress: string, signature: string) => {
+      const { data } = await authApi.walletLogin(walletAddress, signature);
+      persist(data.token, data.user);
+      setUser(data.user);
+      return data.user as AuthUser;
+    },
+    []
+  );
 
   const value = useMemo(
     () => ({ user, loginWithPassword, loginWithWallet, logout }),

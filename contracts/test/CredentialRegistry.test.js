@@ -37,4 +37,18 @@ describe("CredentialRegistry", function () {
       credentialRegistry.connect(citizen).issueAnchor(payloadHash, citizen.address, "ACADEMIC_DEGREE", 0)
     ).to.be.revertedWith("CredentialRegistry: caller is not an active issuer");
   });
+
+  it("rejects anchoring a credential type the issuer is not registered for", async function () {
+    const payloadHash = ethers.keccak256(ethers.toUtf8Bytes("licence-payload"));
+    // issuerOrg is registered for ACADEMIC_DEGREE only.
+    await expect(
+      credentialRegistry.connect(issuerOrg).issueAnchor(payloadHash, citizen.address, "DRIVING_LICENSE", 0)
+    ).to.be.revertedWith("CredentialRegistry: issuer not authorized for this credential type");
+  });
+
+  it("exposes isAuthorizedFor per credential type", async function () {
+    expect(await issuerRegistry.isAuthorizedFor(issuerOrg.address, "ACADEMIC_DEGREE")).to.equal(true);
+    expect(await issuerRegistry.isAuthorizedFor(issuerOrg.address, "DRIVING_LICENSE")).to.equal(false);
+    expect(await issuerRegistry.isAuthorizedFor(citizen.address, "ACADEMIC_DEGREE")).to.equal(false);
+  });
 });

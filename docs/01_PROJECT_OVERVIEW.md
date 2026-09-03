@@ -27,7 +27,7 @@ Everything else in the whitepaper (contracts, roles, credential lifecycle, on-ch
 | Blockchain connectivity | **ethers.js v6** | Same as whitepaper |
 | Backend | **Node.js + Express** | Same as whitepaper |
 | Frontend | **React + TypeScript + Vite** (one app with 3 role-based views, not 3 separate apps) | Simplification — one app is much faster to build/deploy than three; you switch "role" via login |
-| Off-chain DB | **PostgreSQL** (or **SQLite** if you want zero setup during dev) | SQLite is a drop-in swap, same SQL, no server to run locally |
+| Off-chain DB | **PostgreSQL** | Required: the schema uses JSONB, native ENUM, and array columns. SQLite is not supported. |
 | File/document storage (scans, etc.) | Local disk / mocked file upload for prototype (skip real encryption-at-rest complexity for MVP, mention it as planned) | Keep prototype scope realistic |
 | Wallet for citizens | **MetaMask** (browser extension) — citizen "signs" consent transactions with it | Standard, well-documented, huge amount of tutorials |
 | Auth (off-chain app login) | Simple JWT-based auth for issuer/verifier dashboards; citizen uses wallet address as identity | Keeps it web-dev-familiar |
@@ -102,3 +102,27 @@ You have web dev experience, so the parts that will feel *completely normal* to 
 - MetaMask connect + signing flow (a few well-documented hooks/functions)
 
 The workflow file (04_WORKFLOW.md) sequences things so you learn the blockchain-specific pieces in small, testable steps rather than all at once.
+
+## 11. Known Simplifications (disclosed, not hidden)
+
+The prototype scopes down several things from the whitepaper. The single-chain
+choice (one Hardhat network instead of three Besu validators) is covered in
+section 2. The rest:
+
+- **Governance is a single admin key.** `Governance.sol` grants `ADMIN_ROLE` to
+  the deployer, and that one key can propose, approve, suspend, and offboard
+  members and grant roles. The whitepaper describes multi-organisation approval;
+  a real deployment would put an M-of-N multisig or an on-chain quorum behind
+  these actions. Not yet implemented.
+- **The backend co-signs for every issuer.** The API holds all four authority
+  keys (derived from the standard Hardhat mnemonic on the bundled-chain deploy).
+  Anyone who controls the backend can issue or revoke as any authority. The
+  whitepaper's model is that each issuer signs client-side with its own key; the
+  prototype centralises this for convenience. Change before a pilot.
+- **Type authorisation** is now enforced both in the API (the acting
+  organisation must list the credential type in `credential_types_authorized`)
+  and on-chain (`IssuerRegistry.isAuthorizedFor` is checked by
+  `CredentialRegistry.issueAnchor`).
+- **Citizen consent** is relayed on-chain by the backend's admin signer, not
+  signed by the citizen's own wallet. The wallet login itself is a real
+  challenge/response signature check.

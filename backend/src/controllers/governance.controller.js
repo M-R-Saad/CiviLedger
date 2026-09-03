@@ -1,15 +1,19 @@
 const { Organization, GovernanceEvent, CredentialStatusEvent } = require("../models");
 const { getContract, getSigner } = require("../config/blockchain");
+const { serverError, parseBody } = require("../utils/http");
+const S = require("../schemas");
 
-// POST /governance/propose-member  { name, onchain_address, type, credential_types_authorized }
+// POST /governance/propose-member
 async function proposeMember(req, res) {
-  try {
-    const { name, onchain_address, type, credential_types_authorized } = req.body;
+  const data = parseBody(res, S.proposeMember, req.body);
+  if (!data) return;
 
-    // Check if org already exists in DB (e.g. from a previous run)
+  try {
+    const { name, onchain_address, type, credential_types_authorized } = data;
+
     let org = await Organization.findOne({ where: { onchain_address } });
     if (org) {
-      return res.status(200).json({ organization: org, note: "Organization already exists in DB" });
+      return res.status(200).json({ organization: org, note: "Organisation already exists" });
     }
 
     org = await Organization.create({
@@ -20,7 +24,6 @@ async function proposeMember(req, res) {
       status: "PENDING"
     });
 
-    // On-chain: call Governance.proposeMember() using the ADMIN signer
     let txHash = null;
     try {
       const admin = getSigner("ADMIN_PRIVATE_KEY");
@@ -30,7 +33,6 @@ async function proposeMember(req, res) {
       const receipt = await tx.wait();
       txHash = receipt.hash;
     } catch (chainErr) {
-      // On-chain entity may already exist (seeded). Continue — the DB org is created.
       console.warn("On-chain proposeMember failed (may already exist):", chainErr.message);
     }
 
@@ -44,7 +46,7 @@ async function proposeMember(req, res) {
 
     return res.status(201).json({ organization: org, txHash });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "governance.proposeMember", err);
   }
 }
 
@@ -53,7 +55,7 @@ async function approveMember(req, res) {
   try {
     const { organizationId } = req.params;
     const org = await Organization.findByPk(organizationId);
-    if (!org) return res.status(404).json({ error: "Organization not found" });
+    if (!org) return res.status(404).json({ error: "Organisation not found." });
 
     let txHash = null;
     try {
@@ -63,7 +65,6 @@ async function approveMember(req, res) {
       const receipt = await tx.wait();
       txHash = receipt.hash;
     } catch (chainErr) {
-      // On-chain entity may already be approved (seeded). Continue — update DB status.
       console.warn("On-chain approveMember failed (may already be approved):", chainErr.message);
     }
 
@@ -79,41 +80,62 @@ async function approveMember(req, res) {
 
     return res.json({ organization: org, txHash });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "governance.approveMember", err);
   }
 }
 
 // GET /governance/audit-log
 async function getAuditLog(req, res) {
-  const governanceEvents = await GovernanceEvent.findAll({ order: [["created_at", "DESC"]], limit: 100 });
-  const statusEvents = await CredentialStatusEvent.findAll({ order: [["created_at", "DESC"]], limit: 100 });
-  res.json({ governanceEvents, statusEvents });
+  try {
+    const governanceEvents = await GovernanceEvent.findAll({ order: [["created_at", "DESC"]], limit: 100 });
+    const statusEvents = await CredentialStatusEvent.findAll({ order: [["created_at", "DESC"]], limit: 100 });
+    res.json({ governanceEvents, statusEvents });
+  } catch (err) {
+    return serverError(res, "governance.getAuditLog", err);
+  }
 }
 
 // GET /governance/organizations
 async function listOrganizations(req, res) {
-  const organizations = await Organization.findAll({ order: [["created_at", "DESC"]] });
-  res.json(organizations);
+  try {
+    const organizations = await Organization.findAll({ order: [["created_at", "DESC"]] });
+    res.json(organizations);
+  } catch (err) {
+    return serverError(res, "governance.listOrganizations", err);
+  }
 }
 
 // GET /governance/pending-members
 async function listPendingMembers(req, res) {
-  const pending = await Organization.findAll({ where: { status: "PENDING" }, order: [["created_at", "DESC"]] });
-  res.json(pending);
+  try {
+    const pending = await Organization.findAll({ where: { status: "PENDING" }, order: [["created_at", "DESC"]] });
+    res.json(pending);
+  } catch (err) {
+    return serverError(res, "governance.listPendingMembers", err);
+  }
 }
 
 // GET /governance/stats — aggregate counts for oversight dashboard
 async function getGovernanceStats(req, res) {
   try {
-    const totalOrgs = await Organization.count();
-    const activeOrgs = await Organization.count({ where: { status: "ACTIVE" } });
-    const pendingOrgs = await Organization.count({ where: { status: "PENDING" } });
-    const totalGovernanceEvents = await GovernanceEvent.count();
-    const totalStatusEvents = await CredentialStatusEvent.count();
+    const [totalOrgs, activeOrgs, pendingOrgs, totalGovernanceEvents, totalStatusEvents] = await Promise.all([
+      Organization.count(),
+      Organization.count({ where: { status: "ACTIVE" } }),
+      Organization.count({ where: { status: "PENDING" } }),
+      GovernanceEvent.count(),
+      CredentialStatusEvent.count()
+    ]);
     res.json({ totalOrgs, activeOrgs, pendingOrgs, totalGovernanceEvents, totalStatusEvents });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "governance.getGovernanceStats", err);
   }
 }
 
-module.exports = { proposeMember, approveMember, getAuditLog, listOrganizations, listPendingMembers, getGovernanceStats };
+module.exports = {
+  proposeMember,
+  approveMember,
+  getAuditLog,
+  listOrganizations,
+  listPendingMembers,
+  getGovernanceStats
+};

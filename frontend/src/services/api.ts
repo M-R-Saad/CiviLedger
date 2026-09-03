@@ -39,7 +39,10 @@ export default api;
 export const authApi = {
   login: (email: string, password: string) => api.post("/auth/login", { email, password }),
   register: (payload: object) => api.post("/auth/register", payload),
-  walletLogin: (wallet_address: string) => api.post("/auth/wallet-login", { wallet_address })
+  // Wallet login is challenge / response: fetch a message, sign it, exchange the signature.
+  walletNonce: (wallet_address: string) => api.post("/auth/wallet-nonce", { wallet_address }),
+  walletLogin: (wallet_address: string, signature: string) =>
+    api.post("/auth/wallet-login", { wallet_address, signature })
 };
 
 export const issuerApi = {

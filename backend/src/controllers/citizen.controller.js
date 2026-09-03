@@ -4,24 +4,39 @@ const qrcodeService = require("../services/qrcode.service");
 const blockchainService = require("../services/blockchain.service");
 const { getSigner } = require("../config/blockchain");
 const { ethers } = require("ethers");
+const { serverError, parseBody } = require("../utils/http");
+const S = require("../schemas");
 
 // GET /citizen/credentials
 async function listMyCredentials(req, res) {
-  const credentials = await Credential.findAll({
-    where: { citizen_user_id: req.user.id },
-    include: [CredentialType, { model: Organization, as: "issuer" }]
-  });
-  res.json(credentials);
+  try {
+    const credentials = await Credential.findAll({
+      where: { citizen_user_id: req.user.id },
+      include: [CredentialType, { model: Organization, as: "issuer" }]
+    });
+    res.json(credentials);
+  } catch (err) {
+    return serverError(res, "citizen.listMyCredentials", err);
+  }
 }
 
 // POST /citizen/presentations
 // body: { credential_ids: [...], consent_signature, consent_hash }
 // consent_signature/consent_hash are produced client-side via MetaMask (see frontend/src/hooks/useWallet.ts)
 async function createPresentation(req, res) {
+  const data = parseBody(res, S.createPresentation, req.body);
+  if (!data) return;
+
   try {
-    const { credential_ids, consent_signature, consent_hash, expiry_minutes } = req.body;
-    if (!credential_ids || !credential_ids.length) {
-      return res.status(400).json({ error: "credential_ids is required" });
+    const credential_ids = [...new Set(data.credential_ids)];
+    const { consent_signature, consent_hash, expiry_minutes } = data;
+
+    // Only the citizen's own credentials may go into a presentation.
+    const ownedCount = await Credential.count({
+      where: { id: credential_ids, citizen_user_id: req.user.id }
+    });
+    if (ownedCount !== credential_ids.length) {
+      return res.status(403).json({ error: "One or more of those credentials is not yours." });
     }
 
     // Compute consent hash if not provided by the client
@@ -62,7 +77,7 @@ async function createPresentation(req, res) {
 
     return res.status(201).json({ presentation, shareUrl: `/verify/${shareToken}`, qrDataUrl, onchainConsentTx });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "citizen.createPresentation", err);
   }
 }
 
@@ -80,7 +95,7 @@ async function getAuditHistory(req, res) {
     });
     res.json(presentations);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "citizen.getAuditHistory", err);
   }
 }
 
@@ -99,7 +114,7 @@ async function getCitizenStats(req, res) {
     });
     res.json({ totalCredentials, activeCredentials, expiredCredentials, totalShared });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "citizen.getCitizenStats", err);
   }
 }
 
@@ -120,7 +135,7 @@ async function getCredentialDetail(req, res) {
     }
     res.json(credential);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, "citizen.getCredentialDetail", err);
   }
 }
 
