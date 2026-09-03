@@ -10,7 +10,6 @@ import type { CredentialType } from "../../types";
 const DEMO_CITIZENS = [
   { label: "Ahnaf Tahmid", wallet: "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc" },
   { label: "Sumaya Zaman", wallet: "0x976EA74026E726554dB657fA54763abd0C3a0aa9" },
-  { label: "Shahriar Morshed", wallet: "0x14dC79964da2C08dA15Fd60A004f50Db614E3d57" },
 ];
 
 export default function IssueCredentialForm() {

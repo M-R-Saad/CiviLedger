@@ -28,6 +28,7 @@ export default function IssuerCredentialDetail() {
   const [error, setError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [reasonText, setReasonText] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -40,8 +41,7 @@ export default function IssuerCredentialDetail() {
 
   async function handleAction(action: string) {
     if (!id) return;
-    const reason = prompt(`Reason for ${action.toLowerCase()}:`);
-    if (reason === null) return;
+    const reason = reasonText.trim();
     setActionBusy(true);
     setActionMsg(null);
     try {
@@ -171,6 +171,14 @@ export default function IssuerCredentialDetail() {
       {/* Actions */}
       <div className="bg-white border rounded-lg p-4">
         <h2 className="font-semibold text-sm mb-3">Manage</h2>
+        {credential.status_cache !== "REVOKED" && (
+          <textarea
+            className="border rounded px-3 py-2 w-full mb-3 text-sm"
+            placeholder="Reason (optional, recorded on-chain)"
+            value={reasonText}
+            onChange={(e) => setReasonText(e.target.value)}
+          />
+        )}
         <div className="flex flex-wrap gap-2">
           {credential.status_cache === "ACTIVE" && (
             <>

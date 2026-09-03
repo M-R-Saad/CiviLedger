@@ -120,4 +120,21 @@ async function getVerifierStats(req, res) {
   }
 }
 
-module.exports = { getPresentation, checkPresentation, verifyPresentation, getVerifierStats };
+// GET /verifier/history — list verification history for this verifier
+async function getVerifierHistory(req, res) {
+  try {
+    const history = await VerificationEvent.findAll({
+      where: { verifier_org_id: req.user.organization_id },
+      order: [["verified_at", "DESC"]],
+      limit: 50,
+      include: [
+        { model: Presentation, attributes: ["share_token", "credential_ids"] }
+      ]
+    });
+    res.json(history);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { getPresentation, checkPresentation, verifyPresentation, getVerifierStats, getVerifierHistory };

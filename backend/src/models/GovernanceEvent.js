@@ -13,7 +13,8 @@ const GovernanceEvent = sequelize.define(
         "MEMBER_OFFBOARDED",
         "ROLE_GRANTED",
         "ROLE_REVOKED",
-        "POLICY_UPDATED"
+        "POLICY_UPDATED",
+        "CREDENTIAL_ISSUED"
       ),
       allowNull: false
     },

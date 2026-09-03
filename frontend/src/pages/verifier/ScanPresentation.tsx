@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "../../components/common/Button";
 import { StatsCard } from "../../components/ui/StatsCard";
 import { verifierApi } from "../../services/api";
@@ -45,9 +45,15 @@ export default function ScanPresentation() {
         (decodedText) => {
           const extractedToken = extractToken(decodedText);
           setToken(extractedToken);
-          scanner.stop().catch(() => {});
-          setScanning(false);
-          navigate(`/verifier/result/${extractedToken}`);
+          // Stop and clean up before navigating to prevent React DOM manipulation errors
+          scanner.stop().then(() => {
+            scanner.clear();
+            setScanning(false);
+            navigate(`/verifier/result/${extractedToken}`);
+          }).catch(() => {
+            setScanning(false);
+            navigate(`/verifier/result/${extractedToken}`);
+          });
         },
         () => {
           // QR code not found in frame — ignore
@@ -56,12 +62,17 @@ export default function ScanPresentation() {
     } catch (err: any) {
       setCameraError(err?.message || "Camera not available. Use the manual input below.");
       setScanning(false);
+      if (scannerRef.current) {
+        try { scannerRef.current.clear(); } catch (e) {}
+      }
     }
   }
 
   function stopScanning() {
     if (scannerRef.current) {
-      scannerRef.current.stop().catch(() => {});
+      scannerRef.current.stop().then(() => {
+        scannerRef.current?.clear();
+      }).catch(() => {});
       scannerRef.current = null;
     }
     setScanning(false);
@@ -83,7 +94,12 @@ export default function ScanPresentation() {
 
   return (
     <div className="max-w-md mx-auto mt-10 px-4">
-      <h1 className="text-xl font-bold mb-4">Verify a Presentation</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl font-bold">Verify a Presentation</h1>
+        <Link to="/verifier/history" className="text-sm text-blue-600 hover:underline">
+          View History
+        </Link>
+      </div>
 
       {/* Stats Cards */}
       {stats && (
@@ -103,10 +119,9 @@ export default function ScanPresentation() {
 
         {/* QR Reader Container */}
         <div
-          id="qr-reader"
-          ref={containerRef}
-          className="w-full rounded-lg overflow-hidden mb-3"
-          style={{ display: scanning ? "block" : "none" }}
+          className="w-full rounded-lg overflow-hidden mb-3 bg-black"
+          style={{ display: scanning ? "block" : "none", minHeight: scanning ? "250px" : "0" }}
+          dangerouslySetInnerHTML={{ __html: '<div id="qr-reader" style="width:100%"></div>' }}
         />
 
         {!scanning ? (
@@ -136,18 +151,18 @@ export default function ScanPresentation() {
           value={token}
           onChange={(e) => setToken(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && token) {
+            if (e.key === "Enter" && token.trim()) {
               const t = extractToken(token);
-              navigate(`/verifier/result/${t}`);
+              if (t) navigate(`/verifier/result/${t}`);
             }
           }}
         />
         <Button
           onClick={() => {
             const t = extractToken(token);
-            navigate(`/verifier/result/${t}`);
+            if (t) navigate(`/verifier/result/${t}`);
           }}
-          disabled={!token}
+          disabled={!token.trim()}
           className="w-full"
         >
           Verify

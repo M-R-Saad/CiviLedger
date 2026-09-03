@@ -21,6 +21,7 @@ import IssuerCredentialDetail from "./pages/issuer/IssuerCredentialDetail";
 
 import ScanPresentation from "./pages/verifier/ScanPresentation";
 import VerificationResult from "./pages/verifier/VerificationResult";
+import VerifierHistory from "./pages/verifier/VerifierHistory";
 
 import GovernanceDashboard from "./pages/oversight/GovernanceDashboard";
 import AuditLog from "./pages/oversight/AuditLog";
@@ -123,6 +124,14 @@ export default function App() {
             element={
               <RequireRole roles={["VERIFIER_STAFF"]}>
                 <ScanPresentation />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/verifier/history"
+            element={
+              <RequireRole roles={["VERIFIER_STAFF"]}>
+                <VerifierHistory />
               </RequireRole>
             }
           />
