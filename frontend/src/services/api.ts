@@ -65,7 +65,8 @@ export const verifierApi = {
   check: (token: string) => api.get(`/verifier/presentations/${token}/check`),
   // Authenticated verifier action: same checks, plus an on-chain receipt + logged event.
   verify: (share_token: string) => api.post("/verifier/verify", { share_token }),
-  stats: () => api.get("/verifier/stats")
+  stats: () => api.get("/verifier/stats"),
+  history: () => api.get("/verifier/history")
 };
 
 export const governanceApi = {

@@ -42,6 +42,15 @@ async function issueCredential(req, res) {
       status_cache: "ACTIVE"
     });
 
+    const { GovernanceEvent } = require("../models");
+    await GovernanceEvent.create({
+      event_type: "CREDENTIAL_ISSUED",
+      organization_id: req.user.organization_id,
+      actor_user_id: req.user.id,
+      details: { credential_id: credential.id, credential_type_code },
+      onchain_tx_hash: txHash
+    });
+
     return res.status(201).json({ credential, onchain: { txHash, anchorId } });
   } catch (err) {
     return res.status(500).json({ error: err.message });

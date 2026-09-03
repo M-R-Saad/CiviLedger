@@ -9,7 +9,7 @@ const DEMO_ACCOUNTS = [
   { label: "🚗 BRTA Officer (Issuer)", email: "kamal@brta.gov.test", role: "ISSUER_ADMIN" },
   { label: "👤 Ahnaf Tahmid (Citizen)", email: "ahnaf@citizen.test", role: "CITIZEN" },
   { label: "👤 Sumaya Zaman (Citizen)", email: "sumaya@citizen.test", role: "CITIZEN" },
-  { label: "👤 Shahriar Morshed (Citizen)", email: "shahriar@citizen.test", role: "CITIZEN" },
+  // { label: "👤 Shahriar Morshed (Citizen)", email: "shahriar@citizen.test", role: "CITIZEN" },
   { label: "🔍 HR Manager (Verifier)", email: "abrar@employer.test", role: "VERIFIER_STAFF" },
   { label: "🛡️ System Admin (Oversight)", email: "admin@civiledger.test", role: "OVERSIGHT" },
   { label: "🛡️ Oversight Auditor", email: "auditor@civiledger.test", role: "OVERSIGHT" },
