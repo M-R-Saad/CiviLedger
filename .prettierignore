@@ -1,0 +1,10 @@
+dist
+build
+node_modules
+pnpm-lock.yaml
+*.md
+PLAN.html
+frontend/dist
+contracts/out
+contracts/cache
+contracts/lib

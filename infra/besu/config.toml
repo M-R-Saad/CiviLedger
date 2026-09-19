@@ -1,0 +1,29 @@
+# Shared Besu node configuration. PLAN.html §7.1.
+#
+# Every validator runs this file; only the node key and the p2p port differ.
+
+data-path = "/data"
+genesis-file = "/config/genesis.json"
+
+# --- networking ------------------------------------------------------------
+p2p-enabled = true
+p2p-host = "0.0.0.0"
+p2p-port = 30303
+discovery-enabled = false
+static-nodes-file = "/config/static-nodes.json"
+
+# --- RPC -------------------------------------------------------------------
+# Only the first node exposes RPC to the compose network. A validator that also
+# answers arbitrary RPC is a validator with an extra attack surface.
+rpc-http-enabled = true
+rpc-http-host = "0.0.0.0"
+rpc-http-port = 8545
+rpc-http-cors-origins = ["all"]
+rpc-http-api = ["ETH", "NET", "WEB3", "IBFT", "TXPOOL"]
+host-allowlist = ["*"]
+
+# --- consensus -------------------------------------------------------------
+min-gas-price = 0
+# Registries only; no value transfer. See infra/README.md.
+
+logging = "INFO"

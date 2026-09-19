@@ -1,0 +1,16 @@
+# Deploy the registries, once, and publish the address book to a shared volume.
+#
+# Idempotent: if the contracts are already deployed at the recorded addresses,
+# it exits without sending a transaction, so `docker compose up` is safe to run
+# repeatedly.
+
+FROM ghcr.io/foundry-rs/foundry:v1.0.0 AS foundry
+
+WORKDIR /contracts
+COPY contracts/ ./
+COPY infra/scripts/deploy-if-needed.sh /deploy.sh
+
+USER root
+RUN chmod +x /deploy.sh
+
+ENTRYPOINT ["/deploy.sh"]

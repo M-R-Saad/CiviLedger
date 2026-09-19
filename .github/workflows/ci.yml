@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install libraries
+        working-directory: contracts
+        run: |
+          git clone --depth 1 --branch v1.9.7 https://github.com/foundry-rs/forge-std.git lib/forge-std
+          git clone --depth 1 --branch v5.1.0 https://github.com/OpenZeppelin/openzeppelin-contracts.git lib/openzeppelin-contracts
+
+      - name: Build
+        working-directory: contracts
+        run: forge build --sizes
+
+      - name: Test
+        working-directory: contracts
+        # The CI profile raises the fuzz run count; keyAt across rotation
+        # boundaries is the property worth spending the extra runs on.
+        run: FOUNDRY_PROFILE=ci forge test -vv
+
+      - name: Coverage floor
+        working-directory: contracts
+        # PLAN §11 sets 95% lines on IssuerRegistry and StatusRegistry. A
+        # regression below that is a failed build, not a note in a report.
+        run: |
+          forge coverage --report lcov --no-match-coverage "(test|script)"
+          node - <<'EOF'
+          const fs = require('node:fs');
+          const lcov = fs.readFileSync('lcov.info', 'utf8');
+          const required = { 'src/IssuerRegistry.sol': 95, 'src/StatusRegistry.sol': 95 };
+          let failed = false;
+          for (const block of lcov.split('end_of_record')) {
+            const file = /SF:(.+)/.exec(block)?.[1]?.trim().replace(/\\/g, '/');
+            if (!file) continue;
+            const floor = Object.entries(required).find(([name]) => file.endsWith(name))?.[1];
+            if (floor === undefined) continue;
+            const hit = Number(/LH:(\d+)/.exec(block)?.[1] ?? 0);
+            const found = Number(/LF:(\d+)/.exec(block)?.[1] ?? 0);
+            const pct = found === 0 ? 0 : (hit / found) * 100;
+            const ok = pct >= floor;
+            console.log(`${ok ? 'ok  ' : 'FAIL'} ${file} ${pct.toFixed(2)}% (floor ${floor}%)`);
+            if (!ok) failed = true;
+          }
+          process.exit(failed ? 1 : 0);
+          EOF
+
+  packages:
+    name: packages and services
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: civiledger
+          POSTGRES_PASSWORD: civiledger
+          POSTGRES_DB: civiledger_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U civiledger"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    env:
+      CIVILEDGER_TEST_DATABASE_URL: postgresql://civiledger:civiledger@localhost:5432/civiledger_test?schema=public
+      CIVILEDGER_TEST_RPC_URL: http://127.0.0.1:8545
+      CIVILEDGER_TEST_CHAIN_ID: '1337'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prepare contracts
+        working-directory: contracts
+        run: |
+          git clone --depth 1 --branch v1.9.7 https://github.com/foundry-rs/forge-std.git lib/forge-std
+          git clone --depth 1 --branch v5.1.0 https://github.com/OpenZeppelin/openzeppelin-contracts.git lib/openzeppelin-contracts
+          forge build
+
+      - name: Start a chain and deploy
+        run: |
+          anvil --port 8545 --chain-id 1337 --silent &
+          for i in $(seq 1 30); do
+            cast chain-id --rpc-url http://127.0.0.1:8545 >/dev/null 2>&1 && break
+            sleep 1
+          done
+          cd contracts
+          forge script script/Deploy.s.sol:Deploy \
+            --rpc-url http://127.0.0.1:8545 --broadcast \
+            --sig "run(address,bytes32)" \
+            0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
+            0x01ff3b1f3874ed2a0df6d27ea39592959f8238d44e6cdbe5629896c988e18690 \
+            --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+      - name: Regenerate ABIs and confirm they are committed
+        # A contract change that does not regenerate the bindings compiles and
+        # then fails to decode at runtime. Catch it here instead.
+        run: |
+          pnpm --filter @civiledger/chain exec node scripts/generate-abis.mjs
+          git diff --exit-code packages/chain/src/abis.ts
+
+      - name: Build packages
+        run: pnpm --filter "./packages/**" build
+
+      - name: Generate Prisma client
+        run: pnpm --filter @civiledger/api exec prisma generate
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test
+        run: pnpm -r test
+
+      - name: Build the front ends
+        run: |
+          pnpm --filter @civiledger/verify build
+          pnpm --filter @civiledger/console build
+          pnpm --filter @civiledger/wallet build
+
+      - name: Formatting
+        run: pnpm format:check

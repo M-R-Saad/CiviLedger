@@ -1,0 +1,25 @@
+{
+  "name": "@civiledger/status-list",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "W3C Bitstring Status List: build, sign, publish and check. Pure — no I/O.",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@civiledger/credential": "workspace:*",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

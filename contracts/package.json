@@ -1,21 +1,17 @@
 {
-  "name": "civiledger-contracts",
-  "version": "1.0.0",
-  "description": "CiviLedger smart contracts (Governance, IssuerRegistry, CredentialRegistry, CredentialStatus, ConsentAudit)",
+  "name": "@civiledger/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Foundry project. package.json exists only for the solc-based compile check used where forge is unavailable.",
   "scripts": {
-    "compile": "hardhat compile",
-    "test": "hardhat test",
-    "node": "hardhat node",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
-    "seed:local": "hardhat run scripts/seed-demo-data.js --network localhost"
+    "build": "forge build",
+    "test": "forge test -vv",
+    "coverage": "forge coverage --report summary",
+    "fmt": "forge fmt",
+    "check": "node script/compile-check.mjs"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.0",
-    "dotenv": "^16.4.5"
-  },
-  "dependencies": {
-    "@openzeppelin/contracts": "^5.0.2"
+    "@openzeppelin/contracts": "5.1.0",
+    "solc": "0.8.28"
   }
 }

@@ -1,0 +1,577 @@
+// CiviLedger data model. PLAN.html §14.
+//
+// Two rules govern this file:
+//
+//   1. Every column holding personal data is envelope-encrypted with a per-row
+//      data key (the `*_enc` convention). Plaintext personal data never rests
+//      in Postgres.
+//
+//   2. No table joins a subject to a ledger identifier. The link between a
+//      person and an on-chain anchor exists only through `Credential.saltEnc`;
+//      destroying that row severs it permanently. This is the mechanism that
+//      makes erasure possible under the PDPA (PLAN §6.2, §18) — do not add a
+//      convenience column that defeats it.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Accreditation {
+  SELF_ASSERTED
+  PROFESSIONAL_BODY
+  BOARD
+  UGC_RECOGNIZED
+}
+
+enum OrganizationStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  RETIRED
+}
+
+enum AssuranceLevel {
+  AL0
+  AL1
+  AL2
+  AL3
+  AL3_PLUS
+}
+
+enum CredentialState {
+  DRAFT
+  ISSUED
+  REVOKED
+  SUSPENDED
+  SUPERSEDED
+}
+
+enum BatchState {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SIGNING
+  ANCHORING
+  PUBLISHED
+  FAILED
+}
+
+enum ImportState {
+  UPLOADED
+  NORMALISING
+  REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum ImportRowState {
+  PENDING
+  READY
+  CONFLICT
+  REJECTED
+  ISSUED
+}
+
+enum StatusPurpose {
+  REVOCATION
+  SUSPENSION
+}
+
+enum UserRole {
+  REGISTRAR
+  EXAM_CONTROLLER
+  ORG_ADMIN
+  VERIFIER_STAFF
+  OVERSIGHT
+  PLATFORM_ADMIN
+}
+
+enum VerifierPlan {
+  FREE
+  METERED
+  ENTERPRISE
+}
+
+enum KybStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationOutcome {
+  VALID
+  INVALID
+  REVOKED
+  SUSPENDED
+  EXPIRED
+  UNKNOWN_ISSUER
+  UNDETERMINED
+}
+
+enum OutboxState {
+  PENDING
+  IN_FLIGHT
+  CONFIRMED
+  FAILED
+}
+
+/// An issuing or verifying institution.
+model Organization {
+  id             String             @id @default(uuid()) @db.Uuid
+  /// Stable institutional slug; `orgIdHash` is keccak256 of it.
+  slug           String             @unique
+  /// The bytes32 orgId as the ledger holds it. Never derived from a person.
+  orgIdHash      String             @unique @map("org_id_hash")
+  legalName      String             @map("legal_name")
+  nameBn         String?            @map("name_bn")
+  /// The `iss` value this institution's credentials carry.
+  issuerUrl      String             @unique @map("issuer_url")
+  didWeb         String             @map("did_web")
+  accreditation  Accreditation      @default(SELF_ASSERTED)
+  ugcRegNo       String?            @map("ugc_reg_no")
+  status         OrganizationStatus @default(PENDING)
+  /// Share of each verification fee returned to the issuer (PLAN §20.2).
+  revenueShareBps Int               @default(3000) @map("revenue_share_bps")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  issuerKeys  IssuerKey[]
+  credentials Credential[]
+  batches     Batch[]
+  statusLists StatusList[]
+  imports     CredentialImport[]
+  users       User[]
+  verifier    Verifier?
+
+  @@map("organizations")
+}
+
+/// One key epoch, mirroring IssuerRegistry on chain.
+model IssuerKey {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  epoch          Int
+  /// RFC 7638 thumbprint; the value anchored on chain.
+  jwkThumbprint  String    @map("jwk_thumbprint")
+  /// Public JWK. The private half is never here — it lives in KMS.
+  publicJwk      Json      @map("public_jwk")
+  /// Opaque KMS/HSM handle. Non-exportable by construction (PLAN §12.1).
+  kmsKeyRef      String    @map("kms_key_ref")
+  validFrom      DateTime  @map("valid_from")
+  validUntil     DateTime? @map("valid_until")
+  revokedReason  String?   @map("revoked_reason")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, epoch])
+  @@index([jwkThumbprint])
+  @@map("issuer_keys")
+}
+
+/// A person. Every identifying column is encrypted.
+model Subject {
+  id                String         @id @default(uuid()) @db.Uuid
+  displayNameEnc    Bytes          @map("display_name_enc")
+  dobEnc            Bytes?         @map("dob_enc")
+  nationalIdEnc     Bytes?         @map("national_id_enc")
+  emailEnc          Bytes?         @map("email_enc")
+  phoneEnc          Bytes?         @map("phone_enc")
+  /// Blind index over the normalised email, for login lookup without decrypting.
+  emailIndex        String?        @unique @map("email_index")
+  identityAssurance AssuranceLevel @default(AL0) @map("identity_assurance")
+  /// Holder binding public key (cnf). Public half only.
+  holderKeyJwk      Json?          @map("holder_key_jwk")
+  /// Argon2id hash for the hosted wallet tier. Null for device-bound holders.
+  passwordHash      String?        @map("password_hash")
+  /// Set when the subject exercises erasure; keys and salts are destroyed.
+  erasedAt          DateTime?      @map("erased_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  credentials Credential[]
+  receipts    ConsentReceipt[]
+  sessions    Session[]
+  invites     EnrolmentInvite[]
+
+  @@map("subjects")
+}
+
+/// An issued credential. The SD-JWT and its anchor salt are both encrypted.
+model Credential {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  subjectId      String          @map("subject_id") @db.Uuid
+  vct            String
+  /// The signed SD-JWT with every disclosure. Encrypted at rest.
+  sdJwtEnc       Bytes           @map("sd_jwt_enc")
+  /// Per-credential anchor salt. Destroying this unlinks the on-chain leaf.
+  saltEnc        Bytes           @map("salt_enc")
+  /// sha-256 over the issued SD-JWT. Used with the salt to build the leaf.
+  sdJwtDigest    String          @map("sd_jwt_digest")
+  /// Truncated digest of the issuer-signed JWT alone, without disclosures.
+  /// Lets a narrowed presentation be matched back to its credential in order
+  /// to attach an anchor proof and a consent receipt. Verification itself
+  /// never depends on this — it is a convenience, not a trust input.
+  jwtPrefix      String          @map("jwt_prefix")
+  statusListId   String?         @map("status_list_id") @db.Uuid
+  statusIndex    Int?            @map("status_index")
+  assuranceLevel AssuranceLevel  @map("assurance_level")
+  evidenceJson   Json            @map("evidence_json")
+  state          CredentialState @default(DRAFT)
+  issuedAt       DateTime        @map("issued_at")
+  expiresAt      DateTime?       @map("expires_at")
+  revokedAt      DateTime?       @map("revoked_at")
+  revokedReason  String?         @map("revoked_reason")
+  batchId        String?         @map("batch_id") @db.Uuid
+  /// Position of this credential's leaf in its batch's Merkle tree. Recorded
+  /// so an inclusion proof can be regenerated exactly, rather than inferred
+  /// from row ordering that a later migration could perturb.
+  leafIndex      Int?            @map("leaf_index")
+  supersededById String?         @unique @map("superseded_by_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  subject       Subject      @relation(fields: [subjectId], references: [id])
+  batch         Batch?       @relation(fields: [batchId], references: [id])
+  statusList    StatusList?  @relation(fields: [statusListId], references: [id])
+  supersededBy  Credential?  @relation("Supersedes", fields: [supersededById], references: [id])
+  supersedes    Credential?  @relation("Supersedes")
+
+  shareLinks    ShareLink[]
+  verifications Verification[]
+  statusEvents  CredentialStatusEvent[]
+
+  @@unique([statusListId, statusIndex])
+  @@index([organizationId, issuedAt])
+  @@index([subjectId])
+  @@index([batchId])
+  @@map("credentials")
+}
+
+/// Append-only revocation history. Complements the bitstring, never replaces it.
+model CredentialStatusEvent {
+  id            String          @id @default(uuid()) @db.Uuid
+  credentialId  String          @map("credential_id") @db.Uuid
+  previousState CredentialState @map("previous_state")
+  newState      CredentialState @map("new_state")
+  /// SCREAMING_SNAKE_CASE code, never free text — it reaches the chain.
+  reasonCode    String          @map("reason_code")
+  actorUserId   String?         @map("actor_user_id") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  credential Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@index([credentialId, createdAt])
+  @@map("credential_status_events")
+}
+
+/// A signed, anchored batch of credentials.
+model Batch {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  merkleRoot     String?    @map("merkle_root")
+  leafCount      Int        @default(0) @map("leaf_count")
+  manifestUri    String?    @map("manifest_uri")
+  /// Deterministic id the AnchorRegistry derives; lets a retry be idempotent.
+  onChainBatchId String?    @unique @map("on_chain_batch_id")
+  txHash         String?    @map("tx_hash")
+  anchoredAt     DateTime?  @map("anchored_at")
+  state          BatchState @default(DRAFT)
+  /// Four-eyes approval (PLAN §17, issuer-insider row).
+  approvedById   String?    @map("approved_by_id") @db.Uuid
+  approvedAt     DateTime?  @map("approved_at")
+  preparedById   String?    @map("prepared_by_id") @db.Uuid
+  failureReason  String?    @map("failure_reason")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  credentials  Credential[]
+
+  @@index([organizationId, createdAt])
+  @@map("batches")
+}
+
+/// A W3C Bitstring Status List. The bitstring itself is not personal data.
+model StatusList {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  /// Numeric id used in the published URL and on chain.
+  listId         Int           @map("list_id")
+  purpose        StatusPurpose @default(REVOCATION)
+  size           Int           @default(131072)
+  bitstring      Bytes
+  version        Int           @default(0)
+  listHash       String?       @map("list_hash")
+  publishedUri   String?       @map("published_uri")
+  /// Signed status list JWT, exactly as served. Cached so the public endpoint
+  /// serves the same bytes the chain hash covers.
+  signedJwt      String?       @map("signed_jwt")
+  allocatedCount Int           @default(0) @map("allocated_count")
+  sealed         Boolean       @default(false)
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  credentials  Credential[]
+
+  @@unique([organizationId, listId, purpose])
+  @@map("status_lists")
+}
+
+/// A CSV or SIS import awaiting registrar review.
+model CredentialImport {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  filename       String
+  vct            String
+  state          ImportState @default(UPLOADED)
+  rowCount       Int         @default(0) @map("row_count")
+  readyCount     Int         @default(0) @map("ready_count")
+  conflictCount  Int         @default(0) @map("conflict_count")
+  uploadedById   String      @map("uploaded_by_id") @db.Uuid
+  /// Assurance level every credential from this import will carry.
+  assuranceLevel AssuranceLevel @map("assurance_level")
+  evidenceJson   Json           @map("evidence_json")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  rows         ImportRow[]
+
+  @@index([organizationId, createdAt])
+  @@map("credential_imports")
+}
+
+/// One row of an import, with its normalisation result and any conflicts.
+model ImportRow {
+  id           String         @id @default(uuid()) @db.Uuid
+  importId     String         @map("import_id") @db.Uuid
+  rowNumber    Int            @map("row_number")
+  /// Source row, encrypted: it carries names and dates of birth.
+  rawEnc       Bytes          @map("raw_enc")
+  /// Normalised claims, encrypted for the same reason.
+  normalisedEnc Bytes?        @map("normalised_enc")
+  issuesJson   Json           @default("[]") @map("issues_json")
+  state        ImportRowState @default(PENDING)
+  subjectId    String?        @map("subject_id") @db.Uuid
+  credentialId String?        @map("credential_id") @db.Uuid
+
+  import CredentialImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@unique([importId, rowNumber])
+  @@index([importId, state])
+  @@map("import_rows")
+}
+
+/// A time-boxed, claim-scoped share link. The token is stored hashed.
+model ShareLink {
+  id           String    @id @default(uuid()) @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  credentialId String    @map("credential_id") @db.Uuid
+  /// Claims the holder agreed to disclose. Enforced server-side (§25).
+  claimScope   String[]  @map("claim_scope")
+  purpose      String
+  expiresAt    DateTime  @map("expires_at")
+  maxUses      Int       @default(1) @map("max_uses")
+  useCount     Int       @default(0) @map("use_count")
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  credential    Credential     @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  verifications Verification[]
+
+  @@index([credentialId, createdAt])
+  @@index([expiresAt])
+  @@map("share_links")
+}
+
+/// A verifying organisation with API access.
+model Verifier {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String?      @unique @map("organization_id") @db.Uuid
+  orgName        String       @map("org_name")
+  contactEmailEnc Bytes       @map("contact_email_enc")
+  plan           VerifierPlan @default(FREE)
+  apiKeyHash     String?      @unique @map("api_key_hash")
+  apiKeyPrefix   String?      @map("api_key_prefix")
+  monthlyQuota   Int          @default(50) @map("monthly_quota")
+  kybStatus      KybStatus    @default(UNVERIFIED) @map("kyb_status")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization  Organization?  @relation(fields: [organizationId], references: [id])
+  verifications Verification[]
+  users         User[]
+
+  @@map("verifiers")
+}
+
+/// One verification. Never written to the chain (invariant §25).
+model Verification {
+  id            String              @id @default(uuid()) @db.Uuid
+  credentialId  String?             @map("credential_id") @db.Uuid
+  verifierId    String?             @map("verifier_id") @db.Uuid
+  shareLinkId   String?             @map("share_link_id") @db.Uuid
+  claimScope    String[]            @map("claim_scope")
+  result        VerificationOutcome
+  failureCode   String?             @map("failure_code")
+  /// 'live' or 'cached' — a cached result is always labelled (§25).
+  basis         String              @default("live")
+  /// The full signed report, for re-download. Contains disclosed claims.
+  reportEnc     Bytes?              @map("report_enc")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  credential Credential?     @relation(fields: [credentialId], references: [id])
+  verifier   Verifier?       @relation(fields: [verifierId], references: [id])
+  shareLink  ShareLink?      @relation(fields: [shareLinkId], references: [id])
+  receipt    ConsentReceipt?
+
+  @@index([verifierId, createdAt])
+  @@index([credentialId, createdAt])
+  @@map("verifications")
+}
+
+/// What was disclosed, to whom, for what purpose, when. PLAN §10.
+model ConsentReceipt {
+  id             String    @id @default(uuid()) @db.Uuid
+  verificationId String    @unique @map("verification_id") @db.Uuid
+  subjectId      String    @map("subject_id") @db.Uuid
+  /// sha-256 over the canonical receipt. The Merkle leaf.
+  receiptDigest  String    @map("receipt_digest")
+  /// Receipt body, encrypted. Names the verifier and the claims disclosed.
+  receiptEnc     Bytes     @map("receipt_enc")
+  /// Period start of the audit root this receipt was anchored in.
+  anchoredIn     BigInt?   @map("anchored_in")
+  merkleProof    Json?     @map("merkle_proof")
+  /// Enforced by a job, not by policy prose (PLAN §10).
+  expiresAt      DateTime  @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  verification Verification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([subjectId, createdAt])
+  @@index([anchoredIn])
+  @@index([expiresAt])
+  @@map("consent_receipts")
+}
+
+/// Staff accounts for the console, verifier portal and governance tooling.
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  emailIndex     String    @unique @map("email_index")
+  emailEnc       Bytes     @map("email_enc")
+  displayNameEnc Bytes     @map("display_name_enc")
+  passwordHash   String    @map("password_hash")
+  role           UserRole
+  organizationId String?   @map("organization_id") @db.Uuid
+  verifierId     String?   @map("verifier_id") @db.Uuid
+  disabledAt     DateTime? @map("disabled_at")
+  lastLoginAt    DateTime? @map("last_login_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  verifier     Verifier?     @relation(fields: [verifierId], references: [id])
+  sessions     Session[]
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+/// A session. Stored hashed so a database read cannot impersonate anyone.
+///
+/// Exactly one of `userId` (staff, verifier) or `subjectId` (a graduate in the
+/// hosted wallet) is set. Opaque rather than a JWT on purpose: every request
+/// re-reads the account, so a suspension takes effect immediately instead of
+/// whenever a token happens to expire.
+model Session {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  subjectId    String?   @map("subject_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([subjectId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// An invitation for a graduate to claim the credentials issued to them.
+///
+/// Issuance creates a `Subject` from the institution's record, with no login.
+/// This is how that record becomes an account: the institution sends the
+/// graduate a one-time token out of band (SMS or email, PLAN §5.3), and
+/// redeeming it attaches a login to the subject that already holds the
+/// credentials. The token is stored hashed and single-use.
+model EnrolmentInvite {
+  id         String    @id @default(uuid()) @db.Uuid
+  subjectId  String    @map("subject_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  redeemedAt DateTime? @map("redeemed_at")
+  createdById String   @map("created_by_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([subjectId])
+  @@index([expiresAt])
+  @@map("enrolment_invites")
+}
+
+/// Operator actions, for oversight. Payloads are digested, never stored raw.
+model AuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  actorType     String   @map("actor_type")
+  action        String
+  targetType    String?  @map("target_type")
+  targetId      String?  @map("target_id")
+  payloadDigest String?  @map("payload_digest")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("audit_events")
+}
+
+/// Transactional outbox for ledger writes.
+///
+/// The old system anchored on chain and then wrote the database, so a database
+/// failure permanently orphaned an on-chain anchor with nothing to reconcile it.
+/// Here the database commit and the outbox row are one transaction, and the
+/// anchor worker drains the outbox — the chain write can be retried safely
+/// because every registry call is idempotent or version-guarded.
+model OutboxEntry {
+  id          String      @id @default(uuid()) @db.Uuid
+  kind        String
+  payload     Json
+  state       OutboxState @default(PENDING)
+  attempts    Int         @default(0)
+  lastError   String?     @map("last_error")
+  /// Set while a worker holds the row, so two workers cannot both send it.
+  leasedUntil DateTime?   @map("leased_until")
+  txHash      String?     @map("tx_hash")
+  availableAt DateTime    @default(now()) @map("available_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([state, availableAt])
+  @@map("outbox_entries")
+}
