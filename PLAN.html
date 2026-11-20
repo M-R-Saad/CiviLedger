@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CiviLedger — Build Plan</title>
+<style>
+  :root{
+    --ink:#14181f;
+    --ink-2:#4a535f;
+    --ink-3:#6f7a88;
+    --paper:#f8f9fa;
+    --card:#ffffff;
+    --rule:#d9dde3;
+    --rule-soft:#e8ebef;
+    --pine:#1f5c4f;
+    --pine-soft:#e8f1ee;
+    --clay:#8a4b12;
+    --clay-soft:#f7efe6;
+    --slate:#2f4468;
+    --slate-soft:#eaeff7;
+    --code-bg:#f2f4f6;
+    --max:74ch;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#e7eaee; --ink-2:#a8b2be; --ink-3:#7f8a97;
+      --paper:#12151a; --card:#171b21; --rule:#2c333d; --rule-soft:#232931;
+      --pine:#6fbfa8; --pine-soft:#152924;
+      --clay:#d69a5f; --clay-soft:#2a2118;
+      --slate:#8fb0e0; --slate-soft:#171f2c;
+      --code-bg:#1c2128;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  .wrap{display:grid; grid-template-columns:265px minmax(0,1fr); gap:0; max-width:1240px; margin:0 auto}
+  /* ---- nav ---- */
+  nav{
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    padding:34px 22px 60px; border-right:1px solid var(--rule); font-size:13.5px;
+  }
+  nav .navhead{font-family:Iowan Old Style,Palatino,"Palatino Linotype",Georgia,serif; font-size:19px; letter-spacing:-.01em; margin:0 0 4px}
+  nav .navsub{color:var(--ink-3); font-size:12.5px; margin:0 0 22px; line-height:1.45}
+  nav ol{list-style:none; margin:0; padding:0; counter-reset:s}
+  nav ol li{counter-increment:s; margin:0 0 1px}
+  nav ol li a{
+    display:block; padding:4px 8px 4px 30px; color:var(--ink-2); text-decoration:none;
+    border-radius:4px; position:relative;
+  }
+  nav ol li a::before{
+    content:counter(s); position:absolute; left:8px; top:4px;
+    color:var(--ink-3); font-variant-numeric:tabular-nums; font-size:11.5px;
+  }
+  nav ol li a:hover{background:var(--rule-soft); color:var(--ink)}
+  /* ---- main ---- */
+  main{padding:34px 40px 140px; min-width:0}
+  header.doc{border-bottom:2px solid var(--ink); padding-bottom:22px; margin-bottom:34px}
+  header.doc h1{
+    font-family:Iowan Old Style,Palatino,"Palatino Linotype",Georgia,serif;
+    font-size:40px; line-height:1.1; letter-spacing:-.02em; margin:0 0 10px; font-weight:600;
+  }
+  header.doc .dek{font-size:17px; color:var(--ink-2); max-width:var(--max); margin:0 0 18px}
+  .meta{display:flex; flex-wrap:wrap; gap:6px 26px; font-size:13px; color:var(--ink-3)}
+  .meta b{color:var(--ink-2); font-weight:600}
+  h2{
+    font-family:Iowan Old Style,Palatino,"Palatino Linotype",Georgia,serif;
+    font-size:27px; letter-spacing:-.015em; font-weight:600;
+    margin:56px 0 4px; padding-top:22px; border-top:1px solid var(--rule); scroll-margin-top:20px;
+  }
+  h2 .num{color:var(--ink-3); font-size:16px; font-variant-numeric:tabular-nums; margin-right:12px; font-family:inherit}
+  h3{font-size:17.5px; font-weight:650; margin:34px 0 6px; letter-spacing:-.005em; scroll-margin-top:20px}
+  h4{font-size:15px; font-weight:650; margin:24px 0 4px; color:var(--ink-2)}
+  p{margin:0 0 14px; max-width:var(--max)}
+  ul,ol{max-width:var(--max); padding-left:22px; margin:0 0 16px}
+  li{margin:0 0 7px}
+  li > ul, li > ol{margin-top:7px}
+  a{color:var(--pine)}
+  strong{font-weight:650}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.875em;
+    background:var(--code-bg); padding:1.5px 5px; border-radius:3px;
+  }
+  pre{
+    background:var(--code-bg); border:1px solid var(--rule-soft); border-radius:6px;
+    padding:15px 17px; overflow-x:auto; font-size:13px; line-height:1.55; margin:0 0 18px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  pre code{background:none; padding:0; font-size:inherit}
+  pre.ascii{line-height:1.35; font-size:12.5px}
+  table{border-collapse:collapse; width:100%; margin:0 0 20px; font-size:14.5px}
+  th,td{text-align:left; vertical-align:top; padding:9px 13px 9px 0; border-bottom:1px solid var(--rule-soft)}
+  th{font-weight:650; border-bottom:1.5px solid var(--rule); font-size:13px; color:var(--ink-2)}
+  td:last-child,th:last-child{padding-right:0}
+  .box{
+    border:1px solid var(--rule); border-radius:7px; background:var(--card);
+    padding:15px 18px; margin:0 0 20px; max-width:var(--max);
+  }
+  .box > :last-child{margin-bottom:0}
+  .box .tag{
+    display:inline-block; font-size:11.5px; font-weight:700; letter-spacing:.04em;
+    padding:2px 7px; border-radius:3px; margin-bottom:8px;
+  }
+  .box.decide{border-left:3px solid var(--pine)}
+  .box.decide .tag{background:var(--pine-soft); color:var(--pine)}
+  .box.warn{border-left:3px solid var(--clay)}
+  .box.warn .tag{background:var(--clay-soft); color:var(--clay)}
+  .box.rule{border-left:3px solid var(--slate)}
+  .box.rule .tag{background:var(--slate-soft); color:var(--slate)}
+  .lede{font-size:17px; color:var(--ink-2); max-width:var(--max)}
+  .wide{max-width:none}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:0 34px}
+  .grid2 > div > :last-child{margin-bottom:14px}
+  .kv{font-size:14px}
+  .kv td:first-child{width:170px; color:var(--ink-2); font-weight:600}
+  .chk{list-style:none; padding-left:0}
+  .chk li{padding-left:26px; position:relative}
+  .chk li::before{
+    content:"\2610"; position:absolute; left:2px; top:-1px; color:var(--ink-3); font-size:16px;
+  }
+  hr{border:0; border-top:1px solid var(--rule); margin:34px 0}
+  .foot{margin-top:70px; padding-top:20px; border-top:1px solid var(--rule); font-size:13px; color:var(--ink-3)}
+  .srcs{font-size:13.5px}
+  .srcs li{margin-bottom:9px}
+  .srcs a{word-break:break-all}
+  @media (max-width:900px){
+    .wrap{grid-template-columns:1fr}
+    nav{position:static; height:auto; border-right:0; border-bottom:1px solid var(--rule); padding:24px 22px}
+    main{padding:26px 22px 90px}
+    header.doc h1{font-size:31px}
+    .grid2{grid-template-columns:1fr; gap:0}
+  }
+  @media print{
+    nav{display:none} .wrap{display:block} main{padding:0}
+    h2{break-after:avoid} table,pre,.box{break-inside:avoid}
+    body{font-size:10.5pt; background:#fff}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <p class="navhead">CiviLedger</p>
+  <p class="navsub">Build plan &amp; engineering context. Written to be read by Claude Code before it writes anything.</p>
+  <ol>
+    <li><a href="#s1">How to use this file</a></li>
+    <li><a href="#s2">Thesis</a></li>
+    <li><a href="#s3">What changes from the whitepaper</a></li>
+    <li><a href="#s4">The problem we sell against</a></li>
+    <li><a href="#s5">The product</a></li>
+    <li><a href="#s6">Where blockchain earns its place</a></li>
+    <li><a href="#s7">Architecture</a></li>
+    <li><a href="#s8">Credential format</a></li>
+    <li><a href="#s9">Revocation &amp; status</a></li>
+    <li><a href="#s10">Consent &amp; audit</a></li>
+    <li><a href="#s11">Smart contracts</a></li>
+    <li><a href="#s12">Keys, recovery, offline</a></li>
+    <li><a href="#s13">Identity binding</a></li>
+    <li><a href="#s14">Data model</a></li>
+    <li><a href="#s15">API surface</a></li>
+    <li><a href="#s16">Trust bootstrap</a></li>
+    <li><a href="#s17">Threat model</a></li>
+    <li><a href="#s18">Legal &amp; compliance</a></li>
+    <li><a href="#s19">Go to market</a></li>
+    <li><a href="#s20">Money</a></li>
+    <li><a href="#s21">Competition</a></li>
+    <li><a href="#s22">Impact metrics</a></li>
+    <li><a href="#s23">Roadmap</a></li>
+    <li><a href="#s24">Repo &amp; conventions</a></li>
+    <li><a href="#s25">Hard invariants</a></li>
+    <li><a href="#s26">Non-goals</a></li>
+    <li><a href="#s27">Open questions</a></li>
+    <li><a href="#s28">Glossary</a></li>
+    <li><a href="#s29">Sources</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="doc">
+  <h1>CiviLedger: a verification business with a blockchain underneath</h1>
+  <p class="dek">A plan to turn the BCOLBD 2026 concept into something an institution will pay for within twelve months — starting with academic and professional credentials, with the consortium ledger acting as the integrity and revocation substrate rather than the product.</p>
+  <div class="meta">
+    <span><b>Team</b> HexaMind / 2HAAS — United International University</span>
+    <span><b>Version</b> 1.0 — planning baseline</span>
+    <span><b>Status</b> pre-build</span>
+  </div>
+</header>
+
+<h2 id="s1"><span class="num">01</span>How to use this file</h2>
+
+<p>This document is the shared context for the CiviLedger build. It is written for two readers: the team, and Claude Code when it is asked to implement any part of the system.</p>
+
+<ul>
+  <li><strong>Binding sections</strong> — §6 (blockchain's job), §7 (architecture), §8–§15 (technical specifications), §25 (invariants), §26 (non-goals). Do not deviate without editing this file first and noting the change.</li>
+  <li><strong>Indicative sections</strong> — §19–§23 (market, pricing, roadmap). These carry assumptions that the pilot is supposed to falsify. Treat numbers here as hypotheses, not facts.</li>
+  <li><strong>When implementing</strong>, read §25 first. Those rules are the ones that, if broken, make the system illegal, unsafe, or pointless.</li>
+  <li>Keep a short <code>CLAUDE.md</code> at the repo root that says: <em>"Read PLAN.html §7, §25, §26 before making architectural decisions."</em> Do not duplicate this file's content there; duplication causes drift.</li>
+</ul>
+
+<div class="box warn">
+  <span class="tag">Honesty clause</span>
+  <p>The BCOLBD whitepaper was written to score points against a rubric, and it does that well. This plan is written to survive contact with a paying customer, which is a different test. Where the two disagree, this file wins — and §3 lists every disagreement explicitly so nothing is quietly dropped.</p>
+</div>
+
+<h2 id="s2"><span class="num">02</span>Thesis</h2>
+
+<p class="lede">Nobody buys a trust layer. People buy an answer to "is this certificate real?" delivered in seconds instead of weeks. Sell the answer; build the trust layer underneath it because that is the only way the answer stays trustworthy at scale.</p>
+
+<p>Three sentences that should survive every rewrite of the pitch:</p>
+
+<ol>
+  <li><strong>The wedge is academic and professional credential verification for hiring and migration</strong> — not national identity. Identity verification in Bangladesh is already served by the Election Commission's Porichoy gateway; academic verification is not served, and still takes one to three weeks of manual board work.</li>
+  <li><strong>The first issuers are private universities, not ministries.</strong> A private university owns its own records and can sign a memorandum of understanding without an act of parliament. UIU is the design partner. That is the team's genuine unfair advantage and it should be spent immediately.</li>
+  <li><strong>The blockchain is invisible to every user</strong> and exists to answer one question a database cannot: <em>how does a verifier know that CiviLedger itself did not forge this credential?</em> Everything else in the architecture follows from that question.</li>
+</ol>
+
+<p>If, eighteen months from now, three universities issue through us, a hundred employers verify through us, and nobody in either group has ever said the word "blockchain," the project has succeeded.</p>
+
+<h2 id="s3"><span class="num">03</span>What changes from the whitepaper</h2>
+
+<p>Every row below is a deliberate departure. The left column is not wrong — it is competition-optimal. The right column is business-optimal.</p>
+
+<table class="wide">
+<thead><tr><th style="width:23%">Area</th><th style="width:38%">Whitepaper position</th><th>Plan position, and why</th></tr></thead>
+<tbody>
+<tr>
+  <td>Scope</td>
+  <td>Identity + academic + transport credentials, three simulated authorities, national ambition.</td>
+  <td>One credential family — academic and professional — issued by institutions we can actually sign. Transport and NID are roadmap, not v1. Three domains at once means three sales cycles, three schemas and three regulators before a single taka of revenue.</td>
+</tr>
+<tr>
+  <td>Identity</td>
+  <td>An "Identity Authority" node issues NID-equivalent credentials.</td>
+  <td>We never issue identity. We <em>consume</em> identity from Porichoy or from passport + face match, and we record the assurance level we achieved. Building a competing identity authority is a fight with the Election Commission that we lose by default.</td>
+</tr>
+<tr>
+  <td>Who holds the wallet</td>
+  <td>Citizen wallet with device-bound keys is the centre of the design.</td>
+  <td>The wallet is real but it is not the wedge. Consumer wallet adoption is the hardest distribution problem in the world. v1 ships a custodial web wallet plus a shareable verification link; self-custody is an upgrade path for users who want it, not a prerequisite for anyone.</td>
+</tr>
+<tr>
+  <td>Revocation</td>
+  <td><code>CredentialStatus.sol</code> with per-credential <code>suspend()</code> / <code>revoke()</code> writes.</td>
+  <td>W3C Bitstring Status List: one bit per credential in an off-chain list, whose hash is anchored on-chain. One transaction covers 131,072 credentials, revocation is instant, and a verifier can cache the list and check status offline.</td>
+</tr>
+<tr>
+  <td>Consent/audit</td>
+  <td><code>ConsentAudit.recordPresentationReceipt()</code> writes every presentation to chain.</td>
+  <td>Per-presentation on-chain writes publish a verification graph — who checked whom, when — which is the single most sensitive dataset the system will ever hold, and it does not scale. Receipts are stored off-chain and a daily Merkle root is anchored. Same tamper-evidence, none of the leakage.</td>
+</tr>
+<tr>
+  <td>Selective disclosure</td>
+  <td>"Purpose-specific minimal credentials" — the issuer pre-signs a narrow variant.</td>
+  <td>SD-JWT VC. Real selective disclosure with salted digests, one credential, holder chooses which claims to reveal at presentation time. It is an IETF specification with working JavaScript libraries, it is what the EU digital identity wallet uses, and it removes the combinatorial mess of pre-signing a variant per use case.</td>
+</tr>
+<tr>
+  <td>Protocols</td>
+  <td>Bespoke QR and REST flows.</td>
+  <td>OpenID4VCI for issuance, OpenID4VP for presentation. Standard flows mean a foreign employer's existing wallet or verifier can talk to us without a custom integration — which is exactly the credibility we lack.</td>
+</tr>
+<tr>
+  <td>Consortium</td>
+  <td>Three validator organisations, one per authority.</td>
+  <td>Same target, honest sequencing. Day one, three nodes exist but two are operated by us — that is not a consortium and we will not claim it is. We publish who runs each node, hand node two to the design-partner university and node three to an independent operator as soon as they exist, and checkpoint the chain's state root to a public network weekly so that even total collusion is externally detectable.</td>
+</tr>
+<tr>
+  <td>Legacy records</td>
+  <td>Not addressed. Issuance assumes new credentials.</td>
+  <td>Retroactive attestation is the day-one feature. Almost every certificate anyone needs verified in the next decade was issued on paper before we existed. A system that only serves the class of 2027 is useless until 2032. See §5.2.</td>
+</tr>
+<tr>
+  <td>Issuer incentive</td>
+  <td>"Lower manual verification burden."</td>
+  <td>Too soft. Universities already charge students for verification and attestation. We give issuers a revenue share on verification fees, so joining is income, not an IT project. See §20.2.</td>
+</tr>
+<tr>
+  <td>Revenue</td>
+  <td>Membership fees, API tiers, integration services.</td>
+  <td>Same three lines, different order. Verification fees first (verifiers have budget today), citizen migration bundles second (consumers already pay attestation agencies thousands of taka), membership last — it only becomes credible once an association exists.</td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="s4"><span class="num">04</span>The problem we sell against</h2>
+
+<h3>4.1 The bottleneck is the first link, not the last</h3>
+
+<p>Bangladesh acceded to the Hague Apostille Convention in July 2024 and launched an e-Apostille system from March 2025: a digitally signed, QR-verifiable certificate from the Ministry of Foreign Affairs, applied for through myGov, accepted in 120+ countries. The government's own estimate of the saving is on the order of BDT 700 crore a year.</p>
+
+<p>That fixes the <em>last</em> link in the chain. It does not touch the first one. Before MOFA will apostille an academic certificate, the issuing education board or university must verify it — and that step commonly takes one to three weeks, is the least predictable part of the process, slows further around result publication and intake seasons, and is where name mismatches surface for the first time. Degree certificates do not go to a board at all: public universities verify their own, National University verifies its affiliated colleges, and private universities have an extra step.</p>
+
+<div class="box decide">
+  <span class="tag">Positioning</span>
+  <p>CiviLedger makes the slowest link instant, and produces an artefact the fast link can consume. We are not competing with e-Apostille; we are feeding it. The same signed credential serves the domestic employer who never needed an apostille at all.</p>
+</div>
+
+<h3>4.2 Who is in pain, ranked by willingness to pay</h3>
+
+<table class="wide">
+<thead><tr><th style="width:24%">Segment</th><th style="width:38%">Pain today</th><th>Pays today?</th></tr></thead>
+<tbody>
+<tr><td>Overseas recruiters &amp; migration agencies</td><td>Weeks of board verification plus attestation chains per candidate; a rejected document can cost a placement.</td><td>Yes — agency and attestation fees, per candidate.</td></tr>
+<tr><td>Foreign employers &amp; credential evaluators</td><td>No way to check a Bangladeshi degree without a local agent; default assumption is distrust.</td><td>Yes — evaluation fees.</td></tr>
+<tr><td>Banks, NBFIs, insurers (regulated hiring)</td><td>Compliance requires documented verification; done by phone, email and courier.</td><td>Yes — background-check vendors.</td></tr>
+<tr><td>IT / BPO / pharma / hospital employers</td><td>Fake and altered certificates; verification is an unbudgeted HR time sink so it is often skipped entirely.</td><td>Sometimes — and skipping is the tell that price matters.</td></tr>
+<tr><td>Universities (as verifiers of applicants)</td><td>Admissions teams manually check transcripts from dozens of institutions.</td><td>Rarely — but they are also issuers, which is the lever.</td></tr>
+<tr><td>Graduates</td><td>Repeated trips, fees, and weeks of waiting per verification, repeated for every employer.</td><td>Yes — attestation agencies charge multiples of the government fee.</td></tr>
+</tbody>
+</table>
+
+<h3>4.3 The fraud that actually happens</h3>
+
+<p>"Forged certificate" is only one of four failure modes, and the system must address all four or it will be sold on a promise it cannot keep.</p>
+
+<ol>
+  <li><strong>Outright forgery</strong> — a fabricated document. Solved by cryptographic issuance.</li>
+  <li><strong>A real certificate presented by the wrong person.</strong> Solved by holder binding, not by signatures. This is why §13 exists.</li>
+  <li><strong>Altered grades or a real certificate from an unaccredited institution.</strong> Solved by signing the full transcript rather than the certificate alone, and by carrying accreditation status in the issuer registry.</li>
+  <li><strong>Fabricated experience letters and training certificates.</strong> Not solved in v1 — it is the v2 credential type, and it is where the next revenue line sits.</li>
+</ol>
+
+<h2 id="s5"><span class="num">05</span>The product</h2>
+
+<h3>5.1 Three surfaces</h3>
+
+<table class="wide">
+<thead><tr><th style="width:20%">Surface</th><th style="width:16%">User</th><th>What it does</th></tr></thead>
+<tbody>
+<tr>
+  <td>Issuer Console</td>
+  <td>University registrar / exam controller</td>
+  <td>Import records from the existing student information system (CSV or adapter), review and approve a batch, sign it, publish. Revoke or supersede with one click. A dashboard showing verifications answered, staff-hours avoided, and revenue share accrued — the retention feature, and the thing the registrar shows their vice-chancellor.</td>
+</tr>
+<tr>
+  <td>Verification page &amp; API</td>
+  <td>Employer, agency, foreign institution</td>
+  <td>Scan a QR, paste a link, or upload a PDF; get a result in under two seconds: issuer, accreditation, integrity, validity window, revocation status, holder-binding assurance. Produces a signed, downloadable verification report that a third party can independently check. REST API and webhooks for volume users.</td>
+</tr>
+<tr>
+  <td>Credential wallet</td>
+  <td>Graduate</td>
+  <td>Progressive web app first. Holds credentials, generates time-boxed share links with a chosen claim scope, and shows a log of every verification performed against them. Self-custody keys are an opt-in upgrade, not a requirement.</td>
+</tr>
+</tbody>
+</table>
+
+<p>A fourth internal surface — the governance console for issuer onboarding, key rotation ceremonies and oversight read-only access — is operations tooling, not a product. Build it plainly.</p>
+
+<h3>5.2 The feature that makes it useful on day one</h3>
+
+<p>Retroactive attestation. The registrar selects an existing alumni record from the period 1998–2026, the system checks it against the institution's system of record, and the institution signs a credential asserting <em>this record exists in our registry, verified by this method, on this date</em>. The credential carries an <code>assuranceLevel</code> and an <code>evidence</code> block describing exactly how the check was performed.</p>
+
+<div class="box decide">
+  <span class="tag">Design consequence</span>
+  <p>Assurance level is a first-class field on every credential, surfaced in every verification result. A verifier must be able to distinguish "born digital, signed at issuance from the system of record" from "a registrar confirmed a scanned certificate against a ledger book in 2027." Hiding that distinction would make us the fraud.</p>
+</div>
+
+<h3>5.3 The two flows worth getting exactly right</h3>
+
+<pre class="ascii">ISSUANCE (batch, retroactive or at graduation)
+
+  Registrar          Issuer Console         Signer            Ledger
+     |                     |                   |                 |
+     |-- upload / sync --->|                   |                 |
+     |                     |-- normalise, dedupe, validate       |
+     |&lt;-- review queue ----|   against system of record          |
+     |-- approve batch --->|                   |                 |
+     |                     |-- sign each SD-JWT VC ------------->|
+     |                     |                   |                 |
+     |                     |-- build Merkle tree of salted digests
+     |                     |-- anchorBatch(orgId, root, n) ----->| 1 tx
+     |                     |-- allocate status-list indices      |
+     |                     |-- publishStatusList if new ------->| 1 tx
+     |&lt;-- batch published -|                   |                 |
+     |                     |-- notify graduates (SMS / email)    |
+
+VERIFICATION (the two-second promise)
+
+  Verifier scans QR  ->  resolve share token
+                     ->  fetch presentation (SD-JWT + disclosures)
+                     ->  [1] issuer key valid AT SIGNING TIME?   IssuerRegistry.keyAt()
+                     ->  [2] signature over disclosed claims?    local crypto
+                     ->  [3] status bit set?                     cached status list
+                     ->  [4] status list hash matches chain?     StatusRegistry
+                     ->  [5] anchor inclusion proof valid?       AnchorRegistry
+                     ->  [6] holder binding satisfied?           §13
+                     ->  render result + signed report
+                     ->  write consent receipt (off-chain, anchored nightly)
+
+  Steps 1-5 are all offline-capable against a cached registry snapshot.</pre>
+
+<h2 id="s6"><span class="num">06</span>Where blockchain earns its place</h2>
+
+<p>This section exists because the most damaging question anyone can ask is "why not a Postgres table with digital signatures?" — and it is a good question. Signed credentials alone get you most of the value. Here is the part they do not get, stated as four jobs.</p>
+
+<table class="wide">
+<thead><tr><th style="width:26%">Job</th><th style="width:37%">What breaks without a ledger</th><th>Contract</th></tr></thead>
+<tbody>
+<tr>
+  <td>1. Issuer key registry</td>
+  <td>If CiviLedger Ltd. controls the mapping from institution to signing key, CiviLedger Ltd. can mint a degree from any university and no verifier can tell. This is the load-bearing argument for the whole design. Key registration and rotation must be a governed, append-only, externally auditable event.</td>
+  <td><code>IssuerRegistry</code></td>
+</tr>
+<tr>
+  <td>2. Revocation that cannot be quietly undone</td>
+  <td>A centralised status service can un-revoke a credential, or serve one answer to one verifier and a different answer to another. Anchoring the status list hash with a monotonic version makes both detectable.</td>
+  <td><code>StatusRegistry</code></td>
+</tr>
+<tr>
+  <td>3. Proof of existence at a point in time</td>
+  <td>Protects the graduate as much as the verifier: an institution cannot retroactively deny or edit what it signed, and we cannot backdate a credential into history.</td>
+  <td><code>AnchorRegistry</code></td>
+</tr>
+<tr>
+  <td>4. Governance and audit trail</td>
+  <td>An oversight body needs a log of admissions, suspensions and policy changes that the operator cannot edit. Administrator-editable logs are not audit.</td>
+  <td><code>Governance</code>, <code>AuditAnchor</code></td>
+</tr>
+</tbody>
+</table>
+
+<h3>6.1 The falsifiable test</h3>
+
+<p>For any proposed on-chain write, ask: <em>would a rational verifier's trust decision change if the operator could silently alter this record?</em> If yes, it belongs on chain. If no, it belongs in Postgres. Apply this to every new feature.</p>
+
+<h3>6.2 What is never on chain</h3>
+
+<ul>
+  <li>Names, national ID numbers, dates of birth, addresses, phone numbers, email addresses, photographs, biometrics.</li>
+  <li>Grades, transcripts, claim values of any kind.</li>
+  <li>Unsalted hashes of any of the above. A hash of a small-domain value is a lookup table away from being the value; we treat it as personal data and keep it off chain.</li>
+  <li>Stable per-citizen identifiers. No citizen address, no citizen DID, nothing that lets an observer link two credentials to the same person.</li>
+  <li>Individual verification events.</li>
+</ul>
+
+<div class="box rule">
+  <span class="tag">Erasure</span>
+  <p>Under the Personal Data Protection Act 2026 a data subject can demand erasure. An immutable ledger cannot honour that. We resolve the conflict by making sure nothing on the ledger is personal data in the first place: every anchored digest is salted with a per-credential secret held off chain, so destroying the off-chain record renders the on-chain digest an unlinkable random value. Erasure is implemented as <em>key and salt destruction</em>. See §18.</p>
+</div>
+
+<h2 id="s7"><span class="num">07</span>Architecture</h2>
+
+<h3>7.1 Stack</h3>
+
+<table class="wide">
+<thead><tr><th style="width:20%">Layer</th><th style="width:32%">Choice</th><th>Rationale &amp; what was rejected</th></tr></thead>
+<tbody>
+<tr><td>Ledger</td><td>Hyperledger Besu, IBFT 2.0, permissioned</td><td>Known institutional validators, deterministic finality, EVM tooling the team already has. Rejected: Fabric (chaincode skill cost, and its private-data collections solve a problem we avoid entirely by keeping data off chain); public L1 (cost, privacy, and no permissioning story for regulated issuers).</td></tr>
+<tr><td>External checkpoint</td><td>Weekly state-root anchor to a public network</td><td>Answers "your three nodes could collude." Cheap, optional, enormously credible. Decide the target network at build time; the interface is a single <code>checkpoint(bytes32 root, uint64 blockNumber)</code> call.</td></tr>
+<tr><td>Contracts</td><td>Solidity 0.8.x, OpenZeppelin AccessControl, Foundry</td><td>Foundry over Hardhat for faster tests, fuzzing, and <code>forge verify</code>. Contracts stay small and boring — registries, not finance.</td></tr>
+<tr><td>Chain client</td><td>viem</td><td>Typed, lighter and better-maintained for new work than ethers v5; the whitepaper's ethers.js is acceptable if the team already knows it, but pick one and stop.</td></tr>
+<tr><td>Backend</td><td>Node.js + TypeScript, Fastify, Prisma</td><td>One language across the stack for a six-person team. Fastify over Express for schema validation and speed.</td></tr>
+<tr><td>Database</td><td>PostgreSQL 16, hosted in Bangladesh</td><td>Data localisation for confidential/restricted categories under the PDPA. Row-level encryption for claim payloads.</td></tr>
+<tr><td>Object storage</td><td>S3-compatible, in-country, server-side encrypted</td><td>Scans and attachments only. Never the credential itself.</td></tr>
+<tr><td>Credential crypto</td><td>SD-JWT VC, ES256 (P-256)</td><td>Hardware-backed on mobile, universally supported, FIPS-friendly for institutional buyers. Not Ed25519 — worse platform key support on phones.</td></tr>
+<tr><td>Issuer signing keys</td><td>HSM or cloud KMS, per-issuer, non-exportable</td><td>The issuer's key is the whole system's root of value. A key in a <code>.env</code> file ends the company.</td></tr>
+<tr><td>Frontend</td><td>React + TypeScript, Vite; wallet as an installable PWA</td><td>PWA before native: no app-store dependency, works on low-end Android, and the verification page must open instantly from a QR with zero install.</td></tr>
+<tr><td>Protocols</td><td>OpenID4VCI, OpenID4VP, W3C Bitstring Status List</td><td>Interoperability is the credibility strategy. Nothing bespoke where a standard exists.</td></tr>
+<tr><td>Deployment</td><td>Docker Compose for dev; in-country VPS or cloud region for production</td><td>Keep the whole network reproducible with one command — it is also how a prospective issuer evaluates us.</td></tr>
+</tbody>
+</table>
+
+<h3>7.2 System diagram</h3>
+
+<pre class="ascii">┌──────────────────────────────────────────────────────────────────────────┐
+│  CLIENTS                                                                 │
+│  Issuer Console        Verification Page / API      Wallet PWA           │
+│  (registrar)           (employer, agency)           (graduate)           │
+└───────┬────────────────────────┬──────────────────────────┬──────────────┘
+        │                        │                          │
+┌───────┴────────────────────────┴──────────────────────────┴──────────────┐
+│  APPLICATION  (Node + TypeScript, Fastify)                               │
+│                                                                          │
+│   issuance-svc      verify-svc       wallet-svc      registry-svc        │
+│   - normalise       - resolve        - share links   - issuer onboarding │
+│   - sign (KMS)      - 6-step check   - consent       - key rotation      │
+│   - batch + anchor  - report PDF     - audit view    - snapshot publish  │
+│                                                                          │
+│   anchor-worker (cron): status-list publish · daily audit root ·         │
+│                         weekly public checkpoint                         │
+└───────┬───────────────────────────────────────────────┬──────────────────┘
+        │ viem                                          │
+┌───────┴───────────────────────────────┐   ┌───────────┴──────────────────┐
+│  LEDGER   Besu · IBFT 2.0             │   │  OFF-CHAIN (in-country)      │
+│                                       │   │                              │
+│  IssuerRegistry   StatusRegistry      │   │  PostgreSQL                  │
+│  AnchorRegistry   AuditAnchor         │   │   - credentials (encrypted)  │
+│  Governance                           │   │   - salts, status lists      │
+│                                       │   │   - consent receipts         │
+│  node 1 CiviLedger  node 2 university │   │  KMS / HSM — issuer keys     │
+│  node 3 independent operator          │   │  S3 — scans, evidence        │
+│         │                             │   │                              │
+│         └── weekly state-root ────────┼───┼──> public network            │
+└───────────────────────────────────────┘   └──────────────────────────────┘
+
+Nothing crosses from the right box to the left box except salted digests,
+list hashes, Merkle roots and governance events.</pre>
+
+<h2 id="s8"><span class="num">08</span>Credential format</h2>
+
+<p>SD-JWT VC. The issuer signs a JWT whose selectively-disclosable claims are replaced by salted digests; the holder forwards only the disclosures they choose. Verifier recomputes digests and matches.</p>
+
+<pre><code>// Issuer payload (before disclosure processing)
+{
+  "iss": "https://civiledger.com.bd/issuers/uiu",
+  "vct": "bd.civiledger.academic.degree.v1",
+  "iat": 1790000000,
+  "exp": null,                       // degrees do not expire; licences do
+  "cnf": { "jwk": { ... } },         // holder binding key
+  "status": {
+    "status_list": { "idx": 41297, "uri": ".../status/uiu/3" }
+  },
+  "_sd_alg": "sha-256",
+  "_sd": [ "&lt;digest&gt;", "&lt;digest&gt;", ... ],  // selectively disclosable claims
+
+  // always-visible claims
+  "issuer_name": "United International University",
+  "accreditation": "UGC_RECOGNIZED",
+  "assurance_level": "AL2",
+  "evidence": {
+    "method": "REGISTRAR_SOURCE_CHECK",
+    "source_system": "UIU SIS",
+    "checked_at": "2027-02-11",
+    "checked_by_role": "EXAM_CONTROLLER"
+  }
+}
+
+// Selectively disclosable claim set for vct = academic.degree.v1
+//   given_name, family_name, name_bn, date_of_birth, national_id_last4,
+//   programme, degree_level, major, result_cgpa, result_class,
+//   graduation_date, registration_no, transcript_digest, photo_digest</code></pre>
+
+<div class="box decide">
+  <span class="tag">Schema rule</span>
+  <p>Every <code>vct</code> is versioned and immutable once published. A schema change means a new <code>vct</code> and a migration note in the repo — never an edit in place. Verifiers in other countries will pin against these types and we cannot break them.</p>
+</div>
+
+<p>Credential types for v1 and their sequencing:</p>
+
+<table>
+<thead><tr><th style="width:38%"><code>vct</code></th><th style="width:14%">Phase</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>bd.civiledger.academic.degree.v1</code></td><td>1</td><td>The anchor product. Includes transcript digest.</td></tr>
+<tr><td><code>bd.civiledger.academic.transcript.v1</code></td><td>1</td><td>Separate credential so a verifier can request grades only when justified.</td></tr>
+<tr><td><code>bd.civiledger.academic.enrolment.v1</code></td><td>2</td><td>Current-student proof — the highest-frequency, lowest-stakes credential; good for volume.</td></tr>
+<tr><td><code>bd.civiledger.professional.licence.v1</code></td><td>2</td><td>Expiry and revocation genuinely matter here, which is where status lists shine.</td></tr>
+<tr><td><code>bd.civiledger.employment.record.v1</code></td><td>3</td><td>Fabricated experience letters; requires employers as issuers, a different sale.</td></tr>
+<tr><td><code>bd.civiledger.attribute.over18.v1</code></td><td>3</td><td>Derived credential; only worth building once a consumer surface needs it.</td></tr>
+</tbody>
+</table>
+
+<h2 id="s9"><span class="num">09</span>Revocation &amp; status</h2>
+
+<p>W3C Bitstring Status List. Each issuer maintains one or more lists; each credential holds an index into a list. A list is a bitstring, gzipped, published as a signed JWT at a stable URL, with its hash and a monotonically increasing version recorded on chain.</p>
+
+<pre><code>Status list
+  size        131,072 entries (16 KB uncompressed, ~2 KB gzipped typical)
+  values      0 = valid, 1 = revoked
+  second list per issuer for "suspended" where the type needs it
+  published   https://civiledger.com.bd/status/{orgId}/{listId}
+  anchored    StatusRegistry.publishStatusList(orgId, listId, hash, uri, version)
+
+Revocation path (target: under 60 seconds end to end)
+  1. registrar clicks revoke, gives a reason code
+  2. bit flipped, new list built and signed
+  3. list published to CDN
+  4. publishStatusList() with version + 1
+  5. cache-control 1h; verifiers re-fetch and compare hash against chain
+
+Index allocation
+  - random allocation within the list, never sequential by graduation order
+  - sequential indices leak cohort and issuance order to anyone holding the list
+  - a fresh list is started at 80% occupancy</code></pre>
+
+<div class="box warn">
+  <span class="tag">Rollback defence</span>
+  <p>A verifier that has seen version <em>n</em> must reject a served list whose on-chain version is below <em>n</em>. Without this check an operator with CDN access could serve a stale list to suppress a revocation. Implement it in the shared verifier library, not in each client.</p>
+</div>
+
+<h2 id="s10"><span class="num">10</span>Consent &amp; audit</h2>
+
+<p>Every presentation produces a consent receipt: which credential, which claims, which verifier, which purpose, when, under what legal basis. Receipts live in Postgres. Each night a Merkle tree is built over the day's receipt digests and the root is anchored via <code>AuditAnchor</code>.</p>
+
+<ul>
+  <li>The graduate sees their own receipts in the wallet — a genuine differentiator and a direct answer to the PDPA's transparency obligations.</li>
+  <li>The issuer sees aggregate counts, never verifier identity per graduate, unless the graduate opts in.</li>
+  <li>An oversight body can be given an inclusion proof for any receipt without being given the receipt database.</li>
+  <li>Retention: receipts expire on a defined schedule (propose 24 months) and expiry is enforced by a job, not by policy prose.</li>
+</ul>
+
+<h2 id="s11"><span class="num">11</span>Smart contracts</h2>
+
+<p>Five contracts, all registries, no value transfer, no token, no transfer function anywhere. Target under 600 lines of Solidity in total. If a contract starts growing logic, that logic almost certainly belongs in the application layer.</p>
+
+<pre><code>// ---------------------------------------------------------------
+// IssuerRegistry.sol — the load-bearing contract
+// ---------------------------------------------------------------
+enum Accreditation { SELF_ASSERTED, PROFESSIONAL_BODY, BOARD, UGC_RECOGNIZED }
+enum IssuerStatus  { PENDING, ACTIVE, SUSPENDED, RETIRED }
+
+struct KeyEpoch {
+    bytes32 jwkThumbprint;   // RFC 7638 thumbprint of the public key
+    uint64  validFrom;
+    uint64  validUntil;      // 0 while current
+    bytes32 revocationReason;// non-zero if the epoch was cut short
+}
+
+function registerIssuer(bytes32 orgId, string calldata didWeb,
+                        Accreditation acc, bytes32 firstKey) external;
+function rotateKey(bytes32 orgId, bytes32 newKey, uint64 validFrom) external;
+function revokeKey(bytes32 orgId, uint16 epoch, bytes32 reason) external;
+function setStatus(bytes32 orgId, IssuerStatus s) external;
+
+// Historical resolution — a 2027 credential must still verify in 2037
+// after three rotations. This is the function verifiers actually call.
+function keyAt(bytes32 orgId, uint64 ts)
+    external view returns (bytes32 thumbprint, bool valid, bytes32 reason);
+
+// ---------------------------------------------------------------
+// StatusRegistry.sol
+// ---------------------------------------------------------------
+function publishStatusList(bytes32 orgId, uint32 listId, bytes32 listHash,
+                           string calldata uri, uint64 version) external;
+function getStatusList(bytes32 orgId, uint32 listId)
+    external view returns (bytes32 hash, string memory uri,
+                           uint64 version, uint64 updatedAt);
+// reverts if version &lt;= stored version  — no silent rollback
+
+// ---------------------------------------------------------------
+// AnchorRegistry.sol
+// ---------------------------------------------------------------
+function anchorBatch(bytes32 orgId, bytes32 merkleRoot,
+                     uint32 leafCount, string calldata manifestUri) external;
+function getBatch(bytes32 batchId)
+    external view returns (bytes32 orgId, bytes32 root,
+                           uint32 leaves, uint64 anchoredAt);
+// leaf = keccak256(salt || sd-jwt-digest); salt never leaves the database
+
+// ---------------------------------------------------------------
+// AuditAnchor.sol
+// ---------------------------------------------------------------
+function anchorAudit(uint64 periodStart, bytes32 merkleRoot,
+                     uint32 leafCount) external;
+function checkpoint(bytes32 stateRoot, uint64 blockNumber) external;
+
+// ---------------------------------------------------------------
+// Governance.sol — OpenZeppelin AccessControl
+// ---------------------------------------------------------------
+// Roles: ADMIN, ISSUER, ORACLE (anchor worker), OVERSIGHT (read-only)
+// Writes to IssuerRegistry require an M-of-N approval from ADMIN holders
+// held by distinct organisations. One organisation must never be able to
+// admit an issuer or rotate another issuer's key alone.
+function proposeAction(bytes32 actionHash, bytes calldata payload) external;
+function approveAction(bytes32 actionHash) external;
+function executeAction(bytes32 actionHash) external;   // requires threshold
+function setThreshold(uint8 m, uint8 n) external;</code></pre>
+
+<div class="box rule">
+  <span class="tag">Contract rules</span>
+  <ul style="margin-bottom:0">
+    <li>No <code>transfer</code>, <code>approve</code>, <code>mint</code>, or ERC-20/721/1155 interface anywhere. Credentials are not assets.</li>
+    <li>No string PII in any parameter or event. Reviewers should grep for <code>string</code> and justify each one.</li>
+    <li>Every state change emits an event; the indexer reads events, never storage.</li>
+    <li>Upgradeability: none in v1. Deploy new contracts and migrate the registry by governance action. A proxy on the contract that defines institutional trust is a governance hole.</li>
+    <li>Test coverage floor: 95% lines on <code>IssuerRegistry</code> and <code>StatusRegistry</code>, including fuzz tests on <code>keyAt</code> across rotation boundaries.</li>
+  </ul>
+</div>
+
+<h2 id="s12"><span class="num">12</span>Keys, recovery, offline</h2>
+
+<h3>12.1 Issuer keys</h3>
+<p>Non-exportable, in KMS or an HSM, one key per issuer, never shared across issuers. Rotation is a scheduled ceremony with two people present and a governance transaction. A compromised key is revoked with a reason and an effective timestamp; credentials signed before the compromise window remain valid, which is precisely why <code>keyAt()</code> takes a timestamp.</p>
+
+<h3>12.2 Holder keys</h3>
+<p>The whitepaper's device-bound-only model loses credentials whenever a phone is lost, which in this market is often. Three tiers, chosen by the user:</p>
+
+<table>
+<thead><tr><th style="width:22%">Tier</th><th style="width:30%">Key custody</th><th>Recovery</th></tr></thead>
+<tbody>
+<tr><td>Hosted (default)</td><td>Server-side, per-user encrypted</td><td>Account recovery via issuer re-identification. Lowest friction, adequate for v1.</td></tr>
+<tr><td>Device-bound</td><td>Platform keystore (WebAuthn / Secure Enclave)</td><td>Encrypted backup blob, user passphrase, plus issuer-assisted re-issuance.</td></tr>
+<tr><td>Self-custody</td><td>User-held key, exportable</td><td>User's responsibility, with a loud warning. Offered because some institutional users will demand it.</td></tr>
+</tbody>
+</table>
+
+<p>Loss recovery in all tiers ends the same way: re-identify the person, revoke the old holder binding, re-issue against a new key. Build that path in week one; it is the most-used support flow in any credential system.</p>
+
+<h3>12.3 Offline verification</h3>
+<p>A district office with intermittent connectivity must still be able to verify. The verifier app caches a signed issuer-registry snapshot and the relevant status lists, both with published freshness windows. Verification results state their basis: <em>verified against registry snapshot of 14 March, status list version 212</em>. Never present a cached result as a live one.</p>
+
+<h2 id="s13"><span class="num">13</span>Identity binding</h2>
+
+<p>A signature proves a credential is authentic. It does not prove the person presenting it is the subject. Without binding we ship a better-looking version of the problem we claim to solve.</p>
+
+<table class="wide">
+<thead><tr><th style="width:12%">Level</th><th style="width:40%">How the subject was identified</th><th>Where it applies</th></tr></thead>
+<tbody>
+<tr><td>AL0</td><td>Self-asserted; no check.</td><td>Never accepted for a published credential. Exists so the code has a floor value.</td></tr>
+<tr><td>AL1</td><td>Document scan plus OCR, name matched against the institutional record.</td><td>Bulk backfill of old alumni where no in-person step is possible.</td></tr>
+<tr><td>AL2</td><td>Institutional staff confirmed the record against the system of record and matched the person to it.</td><td>The default for retroactive attestation.</td></tr>
+<tr><td>AL3</td><td>Born-digital issuance from the system of record at graduation, holder key bound at enrolment.</td><td>The target steady state for every new cohort.</td></tr>
+<tr><td>AL3+</td><td>AL3 plus a live NID or passport check with face match at wallet enrolment.</td><td>Required for regulated verifiers; uses Porichoy where we are licensed, otherwise passport plus liveness.</td></tr>
+</tbody>
+</table>
+
+<p>Porichoy is licensed to Bangladesh Bank–regulated entities and approved payment service operators under bilateral agreements, so direct access is not available to us at the start. Design the identity provider as a swappable adapter — <code>PorichoyAdapter</code>, <code>PassportMRZAdapter</code>, <code>PartnerBankAdapter</code> — and note that partnering with a regulated entity is a legitimate route to the first one.</p>
+
+<h2 id="s14"><span class="num">14</span>Data model</h2>
+
+<pre><code>organizations       id, legal_name, name_bn, org_id_hash, did_web,
+                    accreditation, ugc_reg_no, status, revenue_share_bps
+issuer_keys         id, org_id, epoch, jwk_thumbprint, kms_key_ref,
+                    valid_from, valid_until, revoked_reason
+subjects            id, display_name_enc, dob_enc, national_id_enc,
+                    identity_assurance, holder_key_jwk, created_at
+                    -- every _enc column: envelope encryption, per-row DEK
+credential_types    vct, json_schema, disclosable_claims, version, frozen_at
+credentials         id, org_id, subject_id, vct, sd_jwt_enc, salt_enc,
+                    status_list_id, status_index, assurance_level,
+                    evidence_json, issued_at, expires_at, batch_id
+batches             id, org_id, merkle_root, leaf_count, manifest_uri,
+                    tx_hash, anchored_at, approved_by
+status_lists        id, org_id, list_id, bitstring_ref, version,
+                    list_hash, published_uri, updated_at
+share_links         token_hash, credential_id, claim_scope[], purpose,
+                    expires_at, max_uses, use_count, created_by
+verifications       id, credential_id, verifier_id, claim_scope[],
+                    result, failure_reason, share_link_id, created_at
+consent_receipts    id, verification_id, receipt_digest, anchored_in,
+                    merkle_proof, expires_at
+verifiers           id, org_name, contact, plan, api_key_hash,
+                    monthly_quota, kyb_status
+audit_events        id, actor, action, target, payload_digest, created_at
+
+Indexes that will matter: credentials(org_id, issued_at),
+verifications(verifier_id, created_at), share_links(token_hash) unique,
+credentials(status_list_id, status_index) unique.</code></pre>
+
+<div class="box rule">
+  <span class="tag">Data rule</span>
+  <p>No table joins a <code>subject</code> to a ledger identifier. The link between a person and an on-chain anchor exists only through <code>credentials.salt_enc</code>, and destroying that row severs it permanently. This is the mechanism that makes erasure possible; do not add a convenience column that defeats it.</p>
+</div>
+
+<h2 id="s15"><span class="num">15</span>API surface</h2>
+
+<pre><code>PUBLIC — no auth, cacheable, the trust surface
+  GET  /.well-known/openid-credential-issuer
+  GET  /v1/registry/snapshot            signed issuer registry + chain proofs
+  GET  /v1/status/{orgId}/{listId}      status list JWT
+  GET  /v1/anchors/{batchId}            root, tx hash, inclusion proof endpoint
+  POST /v1/verify                       { presentation } -> result (rate limited)
+  GET  /v1/reports/{reportId}           signed verification report (PDF + JSON)
+
+ISSUER — mTLS or OAuth client credentials
+  POST /v1/issuer/imports               upload CSV / trigger SIS sync
+  GET  /v1/issuer/imports/{id}/review   normalisation results, conflicts
+  POST /v1/issuer/batches               approve + sign + anchor
+  POST /v1/issuer/credentials/{id}/revoke      { reason }
+  POST /v1/issuer/credentials/{id}/supersede   { replacement }
+  GET  /v1/issuer/analytics             verifications, hours saved, share due
+
+VERIFIER — API key, quota enforced
+  POST /v1/verify                       same contract as public, higher limits
+  POST /v1/presentation-requests        OpenID4VP request for a claim scope
+  GET  /v1/presentation-requests/{id}   poll for holder response
+  POST /v1/webhooks                     verification.completed, credential.revoked
+
+WALLET — user session
+  GET  /v1/wallet/credentials
+  POST /v1/wallet/share-links           { credentialId, claimScope[], ttl, purpose }
+  DELETE /v1/wallet/share-links/{token}
+  GET  /v1/wallet/receipts              who verified what, when
+
+Verification response — this shape is a contract, version it
+{
+  "result": "valid" | "invalid" | "revoked" | "expired" | "unknown_issuer",
+  "checkedAt": "2027-03-14T09:12:04Z",
+  "basis": "live" | "cached",
+  "issuer":  { "name": "...", "accreditation": "UGC_RECOGNIZED",
+               "keyValidAtSigning": true },
+  "credential": { "vct": "...", "issuedAt": "...", "expiresAt": null,
+                  "assuranceLevel": "AL3" },
+  "claims": { "given_name": "...", "degree_level": "...", ... },
+  "integrity": { "signature": "ok", "anchorProof": "ok",
+                 "anchorTx": "0x..." },
+  "status": { "revoked": false, "listVersion": 212,
+              "listHashMatchesChain": true },
+  "holderBinding": "verified" | "not_presented",
+  "reportId": "..."
+}</code></pre>
+
+<h2 id="s16"><span class="num">16</span>Trust bootstrap</h2>
+
+<p>The hardest problem is not technical. A recruiter in Dubai has no reason to trust a domain they have never heard of. Five moves, in order of cost:</p>
+
+<ol>
+  <li><strong>Open the verifier.</strong> Publish the verification specification and an MIT-licensed JavaScript library so anyone can verify a CiviLedger credential without touching our servers. A verification that depends on our uptime and honesty is not verification.</li>
+  <li><strong>Publish the registry.</strong> The issuer registry, its chain proofs, and node operator identities are public. Anyone can audit who can sign what.</li>
+  <li><strong>Signed reports.</strong> Every verification produces a report that carries its own signature and proofs — forwardable, checkable, and usable as evidence in a compliance file.</li>
+  <li><strong>Borrow institutional credibility.</strong> UGC recognition status in the registry; an MoU published by the partner university; a named independent node operator; an oversight seat for a law firm or professional body before anyone asks for one.</li>
+  <li><strong>Feed the apostille chain.</strong> Work toward the issuer's digital attestation being accepted as the board/university verification step that precedes MOFA's e-Apostille. Slow, political, and worth more than every other item combined.</li>
+</ol>
+
+<h2 id="s17"><span class="num">17</span>Threat model</h2>
+
+<table class="wide">
+<thead><tr><th style="width:26%">Threat</th><th style="width:34%">Impact</th><th>Control</th></tr></thead>
+<tbody>
+<tr><td>CiviLedger insider forges a credential</td><td>Total loss of trust; the existential one</td><td>We never hold issuer signing keys in a form we can use unilaterally; issuer keys live in the issuer's KMS tenant or under dual control. Registry writes need M-of-N across organisations. Anchors are externally checkpointed.</td></tr>
+<tr><td>Issuer insider signs a fake degree</td><td>Real forgery with a valid signature</td><td>Cannot be prevented cryptographically — only detected. Four-eyes approval on batches, anomaly detection on out-of-cohort issuance, immutable batch history, and a published dispute process.</td></tr>
+<tr><td>Issuer signing key stolen</td><td>Mass forgery in a time window</td><td><code>revokeKey</code> with an effective timestamp; credentials outside the window survive. Alerting on issuance volume and off-hours signing.</td></tr>
+<tr><td>Share link replayed by a third party</td><td>Credential presented by the wrong person</td><td>Single-use or low-use tokens, short TTL, purpose binding, holder-binding challenge for high-assurance verifiers, verifier identity recorded in the receipt.</td></tr>
+<tr><td>Status list suppressed or rolled back</td><td>A revoked credential verifies as valid</td><td>Monotonic on-chain version, hash comparison on every fetch, client-side rejection of lower versions, freshness window in the report.</td></tr>
+<tr><td>Correlation of a person across verifiers</td><td>Surveillance by inference</td><td>No stable per-citizen on-chain identifier, random status-list index allocation, per-presentation holder key derivation where the type allows, no per-presentation on-chain writes.</td></tr>
+<tr><td>Node collusion or history rewrite</td><td>Ledger claims become worthless</td><td>Independent node operators as the network grows; weekly public checkpoint so any rewrite is externally provable.</td></tr>
+<tr><td>Phishing verifier harvesting credentials</td><td>Claim data collected under false pretence</td><td>Verifier KYB before API access, verifier identity shown in the consent prompt, claim-scope minimisation enforced server-side, receipts visible to the graduate.</td></tr>
+<tr><td>PII in logs or error traces</td><td>Regulatory breach</td><td>Structured logging with a deny-list, redaction middleware, and a CI check that fails on known PII field names in log calls.</td></tr>
+</tbody>
+</table>
+
+<h2 id="s18"><span class="num">18</span>Legal &amp; compliance</h2>
+
+<p>Bangladesh gazetted the Personal Data Protection Ordinance in November 2025, amended it in February 2026, and Parliament passed the Personal Data Protection Act 2026 in April 2026. This is no longer a future consideration — it is the operating environment, with a compliance window running from gazette publication.</p>
+
+<table class="wide">
+<thead><tr><th style="width:28%">Obligation</th><th>How the design answers it</th></tr></thead>
+<tbody>
+<tr><td>Consent before collection and use</td><td>Consent receipts with purpose and claim scope, captured at presentation, visible to the subject.</td></tr>
+<tr><td>Data classification and localisation</td><td>Credential claims and identity data are treated as confidential or restricted and stored in Bangladesh. This is a hosting decision, not a preference — make it before the first production deploy.</td></tr>
+<tr><td>Erasure and rectification</td><td>Implemented as destruction of the off-chain record, salt and key. The on-chain digest becomes an unlinkable random value. Rectification is supersession: revoke and re-issue, never edit.</td></tr>
+<tr><td>Purpose limitation and minimisation</td><td>Selective disclosure at the protocol level; verifiers request a claim scope and the server refuses claims outside it.</td></tr>
+<tr><td>Cross-border transfer</td><td>No claim data leaves the country in v1. Any future foreign verifier integration receives a verification result, not a data export.</td></tr>
+<tr><td>Accountability</td><td>Named data protection officer, records of processing, DPIA before the pilot handles real graduate data.</td></tr>
+</tbody>
+</table>
+
+<div class="box warn">
+  <span class="tag">Before real data</span>
+  <p>Do not touch a single real graduate record until: a signed data-processing agreement with the issuing institution exists, a DPIA is written, hosting is in-country, and a lawyer has read both. The prototype runs on synthetic data — generate it, do not borrow it.</p>
+</div>
+
+<p>Also in scope, to be checked with counsel: the Cyber Security Ordinance 2025 and the National Data Governance Ordinance 2025; the legal weight of an electronic signature for institutional attestation; and whether any UGC or ministry approval is needed before a private university's digital attestation can substitute for its paper one.</p>
+
+<h2 id="s19"><span class="num">19</span>Go to market</h2>
+
+<h3>19.1 Sequencing</h3>
+
+<p>Each stage exists to buy the right to attempt the next one.</p>
+
+<ol>
+  <li><strong>One university, one department.</strong> UIU. Backfill five years of one department's graduates. Free. The goal is a working system and a reference, not revenue.</li>
+  <li><strong>Three employers.</strong> Alumni employers first — warm introductions from the same university. Free tier. The goal is the turnaround-time number that becomes the whole sales pitch.</li>
+  <li><strong>Two more private universities.</strong> The pitch is now a demonstration plus a revenue share, not a concept. Private universities compete on graduate employability; "our degrees verify in two seconds" is a marketing asset for them.</li>
+  <li><strong>Paid verifiers.</strong> Recruitment and migration agencies, then background-check firms, then bank and hospital HR. They have budget lines already.</li>
+  <li><strong>Professional bodies.</strong> Licences with expiry and revocation — the credential type where our status-list design is obviously better than a PDF.</li>
+  <li><strong>The public side.</strong> Education boards, National University, UGC. Only attempt this with commercial traction behind it. Government adoption follows demonstrated private-sector use far more reliably than it precedes it.</li>
+</ol>
+
+<h3>19.2 What a university actually needs to hear</h3>
+
+<p>Not a blockchain pitch. In order: we will not touch your database; your registrar keeps the final say on every batch; your signing key is yours; your verification workload drops; you earn a share of every verification fee; and here is another university already doing it. The last item is why step one matters more than steps three through six.</p>
+
+<h2 id="s20"><span class="num">20</span>Money</h2>
+
+<h3>20.1 Pricing shape</h3>
+
+<table class="wide">
+<thead><tr><th style="width:22%">Who</th><th style="width:26%">Pays</th><th>Reasoning</th></tr></thead>
+<tbody>
+<tr><td>Issuing institution</td><td>Nothing to issue. Optional paid backfill for bulk historical digitisation, plus a white-label verification portal.</td><td>Never charge the party whose participation is the product. Charge for the labour-intensive service instead.</td></tr>
+<tr><td>Verifier, low volume</td><td>Free up to a monthly cap, then per verification.</td><td>The free tier is distribution. The cap converts the firms that have real volume.</td></tr>
+<tr><td>Verifier, enterprise</td><td>Annual contract: API, webhooks, ATS integration, SLA, bulk verification.</td><td>Where the revenue concentrates. Agencies and background-check firms verify continuously.</td></tr>
+<tr><td>Graduate</td><td>Free to hold and share. Paid migration bundle: apostille-ready pack, certified translations, courier coordination.</td><td>This spend already exists and goes to attestation agencies. Capture it without charging for verification itself.</td></tr>
+<tr><td>Association membership</td><td>Later, once more than one institution operates a node.</td><td>Membership fees before an association exists are a fiction. Do not put them in a deck yet.</td></tr>
+</tbody>
+</table>
+
+<h3>20.2 The revenue share</h3>
+
+<p>A defined share of every verification fee earned against an institution's credentials flows back to that institution, tracked in <code>organizations.revenue_share_bps</code> and reported in the issuer dashboard. This converts the sales conversation from "please adopt our system" to "here is a new income line on records you already hold," and it makes the issuer an active participant in recruiting verifiers. Set the share generously at first; it is cheaper than a sales team.</p>
+
+<h3>20.3 Unit economics — a frame, not a forecast</h3>
+
+<p>Fill these in from pilot data. The point of writing them now is to know which measurements the pilot must produce.</p>
+
+<pre><code>Revenue per verification              R    (price, net of revenue share)
+Marginal cost per verification        C    (compute + storage + support)
+Verifications per credential per year V    (the reuse factor — the key ratio)
+Credentials issued per institution    N
+Cost to onboard one institution       K    (integration + backfill + legal)
+
+Annual gross margin per institution   = N × V × (R − C)
+Payback period on an institution      = K / (N × V × (R − C))
+
+Sensitivity: the business lives or dies on V. One verification per
+credential per year makes this a services company. Five or more makes
+it infrastructure. Instrument V from the first week of the pilot.</code></pre>
+
+<h3>20.4 Funding path</h3>
+<p>Competition prize money and university support cover the prototype. The pilot needs a grant or a small pre-seed; ICT Division innovation funds, startup programmes, and donor-funded migration or skills programmes are all plausible and all move slowly, so start the applications during the prototype phase rather than after it.</p>
+
+<h2 id="s21"><span class="num">21</span>Competition</h2>
+
+<table class="wide">
+<thead><tr><th style="width:24%">Player</th><th style="width:32%">What they do well</th><th>Our position</th></tr></thead>
+<tbody>
+<tr><td>Manual board / university verification</td><td>Authoritative, legally recognised today.</td><td>The real incumbent. One to three weeks versus two seconds. We do not replace their authority; we carry it.</td></tr>
+<tr><td>MOFA e-Apostille</td><td>Digital, QR-verifiable, internationally recognised, government-run.</td><td>Not a competitor. It fixes the last link; we fix the first. Integration is the long-term goal.</td></tr>
+<tr><td>Porichoy</td><td>Official NID verification API for regulated entities.</td><td>A supplier, not a rival. We consume identity from it where licensed and stay out of the identity business.</td></tr>
+<tr><td>Background-check firms</td><td>Relationships, human follow-up, full-spectrum checks.</td><td>Channel partners. We cut their unit cost on the education-verification component; they resell.</td></tr>
+<tr><td>Existing blockchain certificate products</td><td>Same insight, earlier to market.</td><td>Differentiate on selective disclosure, standards interoperability, revocation that actually works, retroactive attestation and the revenue share — not on the ledger. A per-institution certificate viewer is not a network.</td></tr>
+<tr><td>Attestation and apostille agencies</td><td>Own the consumer relationship and get paid well for it.</td><td>Partner or absorb. The migration bundle in §20.1 is aimed squarely here.</td></tr>
+<tr><td>A future government mandate</td><td>Could standardise the whole market overnight.</td><td>The main strategic risk and the main opportunity. Mitigation is to be standards-based, open-specified and already operating, so the obvious move is to adopt us rather than rebuild us.</td></tr>
+</tbody>
+</table>
+
+<h2 id="s22"><span class="num">22</span>Impact metrics</h2>
+
+<p>These are the numbers that decide whether this is worth doing. Instrument them in the product from the first deploy; retrofitting analytics always loses the baseline.</p>
+
+<table>
+<thead><tr><th style="width:44%">Metric</th><th style="width:18%">Baseline</th><th>Target</th></tr></thead>
+<tbody>
+<tr><td>Median time from request to verified answer</td><td>1–3 weeks</td><td>Under 5 seconds</td></tr>
+<tr><td>Verifications requiring any human involvement</td><td>~100%</td><td>Under 5%</td></tr>
+<tr><td>Registrar staff-hours per 100 verifications</td><td>Measure in week 1</td><td>Under 1 hour</td></tr>
+<tr><td>Reuse factor: presentations per credential per year</td><td>n/a</td><td>3+ by month 12</td></tr>
+<tr><td>Cost per verification, all-in</td><td>Measure at the agency</td><td>Under 10% of manual</td></tr>
+<tr><td>Fraudulent or altered documents detected</td><td>Unknown</td><td>Report honestly, including zero</td></tr>
+<tr><td>Claims disclosed per verification</td><td>Whole document</td><td>Under 5 fields median</td></tr>
+<tr><td>Graduates who opened their receipt log</td><td>n/a</td><td>Proves the privacy story is real, not decorative</td></tr>
+</tbody>
+</table>
+
+<h2 id="s23"><span class="num">23</span>Roadmap</h2>
+
+<h3>Phase 1 — Working system, months 0–3</h3>
+<p>Goal: one department's graduates verifiable end to end on synthetic data, then real data once the paperwork in §18 exists.</p>
+<ul class="chk">
+  <li>Besu devnet, three nodes, Docker Compose, one command to start</li>
+  <li>Five contracts deployed, Foundry tests passing, coverage floor met</li>
+  <li>SD-JWT VC issuance and verification with a working <code>keyAt()</code> path across a simulated rotation</li>
+  <li>Status list publish, revoke, and the rollback-rejection check</li>
+  <li>Issuer Console: CSV import, review, approve, batch sign, anchor, revoke</li>
+  <li>Verification page: QR, link, and PDF upload; six-step check; signed report</li>
+  <li>Wallet PWA: hold, share with claim scope and TTL, view receipts</li>
+  <li>Open-source verifier library published with a passing conformance test</li>
+  <li>Design partner MoU signed; DPIA drafted</li>
+</ul>
+
+<h3>Phase 2 — Paid pilot, months 3–6</h3>
+<ul class="chk">
+  <li>Real graduate data under a signed data-processing agreement, hosted in-country</li>
+  <li>Retroactive backfill of five years of alumni for the design partner</li>
+  <li>Three employer verifiers live; baseline and post-launch timings published</li>
+  <li>Node two handed to the university; node three to an independent operator</li>
+  <li>Weekly public checkpoint running</li>
+  <li>First paid verification contract signed</li>
+  <li>Second and third university in the pipeline with the pilot's numbers as the pitch</li>
+</ul>
+
+<h3>Phase 3 — Network, months 6–12</h3>
+<ul class="chk">
+  <li>Three or more issuing institutions; governance threshold raised above one organisation</li>
+  <li>Professional licence credential type with expiry and status</li>
+  <li>Verifier API with quotas, billing, webhooks, and one ATS integration</li>
+  <li>Migration bundle live for graduates</li>
+  <li>Independent security review of contracts and the verification path</li>
+  <li>Conversation opened with UGC or a board about recognising digital attestation</li>
+</ul>
+
+<h3>Phase 4 — Beyond, months 12–24</h3>
+<ul class="chk">
+  <li>Employment-record credentials with employers as issuers</li>
+  <li>Education boards or National University as issuers</li>
+  <li>Foreign verifier and evaluator integrations using the open standards already in place</li>
+  <li>Association formed; membership fees become real</li>
+</ul>
+
+<h2 id="s24"><span class="num">24</span>Repo &amp; conventions</h2>
+
+<pre class="ascii">civiledger/
+├─ CLAUDE.md                 pointer to this file; no duplicated content
+├─ PLAN.html                 this document
+├─ contracts/                Foundry
+│  ├─ src/                   IssuerRegistry, StatusRegistry, AnchorRegistry,
+│  │                         AuditAnchor, Governance
+│  ├─ test/                  unit + fuzz; keyAt rotation boundaries
+│  └─ script/                deploy, governance ceremonies
+├─ packages/
+│  ├─ credential/            SD-JWT VC issue, present, verify (pure, no I/O)
+│  ├─ status-list/           bitstring build, sign, publish, check
+│  ├─ verifier/              MIT-licensed public verification library
+│  └─ chain/                 viem clients, typed contract bindings
+├─ services/
+│  ├─ api/                   Fastify; issuance, verify, wallet, registry
+│  └─ anchor-worker/         status publish, nightly audit root, checkpoint
+├─ apps/
+│  ├─ console/               issuer console (React)
+│  ├─ verify/                public verification page (React, no auth)
+│  └─ wallet/                graduate PWA (React)
+├─ infra/                    docker-compose, besu genesis, node configs
+└─ docs/
+   ├─ verification-spec.md   the public specification
+   ├─ threat-model.md
+   └─ decisions/             one ADR per architectural decision
+
+Conventions
+  - TypeScript strict everywhere; no `any` in packages/
+  - Crypto and verification logic lives in packages/, never in a service or app
+  - Every service boundary validated with a JSON schema at the edge
+  - Migrations are forward-only and reviewed
+  - One ADR per decision that contradicts or extends this plan
+  - Secrets from the environment or KMS; a private key in git is a rebuild</pre>
+
+<h2 id="s25"><span class="num">25</span>Hard invariants</h2>
+
+<div class="box rule">
+  <span class="tag">Never violate</span>
+  <ol style="margin-bottom:0">
+    <li>No personal data on chain — including unsalted hashes of personal data, and including in event parameters.</li>
+    <li>No per-presentation on-chain writes. Ever. The verification graph stays off chain.</li>
+    <li>No stable per-citizen on-chain identifier.</li>
+    <li>Verification must be possible with only: the credential, a signed registry snapshot, and a status list. If a check requires calling our API, the design is wrong.</li>
+    <li>No transfer, mint, or token semantics in any contract. Credentials are non-transferable records.</li>
+    <li><code>keyAt()</code> resolves keys by signing timestamp, not by current key. A rotation must never invalidate history.</li>
+    <li>Status-list versions are monotonic and clients reject any regression.</li>
+    <li>Assurance level and evidence are surfaced in every verification result. Never present AL1 as if it were AL3.</li>
+    <li>Issuer signing keys are non-exportable and never held by CiviLedger in a unilaterally usable form.</li>
+    <li>Claim scope is enforced server-side. A verifier cannot receive a claim it did not request and justify.</li>
+    <li>Real personal data requires a signed DPA, an in-country deployment and a DPIA first. Synthetic data until then.</li>
+    <li>A cached verification result is always labelled as cached, with its freshness window.</li>
+  </ol>
+</div>
+
+<h2 id="s26"><span class="num">26</span>Non-goals</h2>
+
+<ul>
+  <li><strong>Not an identity provider.</strong> We consume identity; we never assert it.</li>
+  <li><strong>Not a document store.</strong> We hold what is needed to issue and verify, not a citizen's filing cabinet.</li>
+  <li><strong>No token, no coin, no transferable credential, no financialisation of identity.</strong> Not in v1, not in v5.</li>
+  <li><strong>No public chain for credential data.</strong> Public checkpointing of state roots only.</li>
+  <li><strong>No zero-knowledge circuits in v1.</strong> SD-JWT covers the real disclosure requirements. Revisit only when a customer requirement cannot be met without it.</li>
+  <li><strong>No native mobile apps before the PWA has users.</strong></li>
+  <li><strong>No national rollout narrative in sales material.</strong> Sell the verification that works today.</li>
+  <li><strong>No custom cryptography.</strong> If a design needs a novel scheme, the design is wrong.</li>
+</ul>
+
+<h2 id="s27"><span class="num">27</span>Open questions</h2>
+
+<p>These need answers from the team or from outside; they are not implementation details and should not be guessed at in code.</p>
+
+<ol>
+  <li>Which university signs first, and who inside it owns the decision — registrar, exam controller, or vice-chancellor's office?</li>
+  <li>What does that university's system of record actually look like, and can it be read programmatically or only exported?</li>
+  <li>Does a private university's digital attestation currently satisfy the board or ministry step in the apostille chain, and if not, who decides that?</li>
+  <li>What do employers and agencies pay today, per verification, including staff time? This number is the price ceiling and nobody has measured it.</li>
+  <li>Which regulated partner could give us a lawful route to Porichoy, and what do they want in return?</li>
+  <li>Who operates node three, and are they willing to be named publicly?</li>
+  <li>What legal entity holds the contracts, and what is the ownership split among six founders? Settle this before revenue, not after.</li>
+  <li>Which public network for checkpointing, and who pays its fees in year three?</li>
+</ol>
+
+<h2 id="s28"><span class="num">28</span>Glossary</h2>
+
+<table>
+<thead><tr><th style="width:26%">Term</th><th>Meaning here</th></tr></thead>
+<tbody>
+<tr><td>Anchor</td><td>A salted digest of a credential, committed to the ledger inside a batch Merkle root.</td></tr>
+<tr><td>Assurance level</td><td>How rigorously the subject and the record were checked at issuance. AL0–AL3+.</td></tr>
+<tr><td>Consent receipt</td><td>An off-chain record of what was disclosed, to whom, for what purpose, when.</td></tr>
+<tr><td>Holder binding</td><td>Cryptographic proof that the presenter controls the key the credential was issued to.</td></tr>
+<tr><td>Issuer</td><td>The institution that signs. Always the authoritative source; never CiviLedger.</td></tr>
+<tr><td>SD-JWT VC</td><td>A credential format where individual claims can be withheld at presentation time.</td></tr>
+<tr><td>Status list</td><td>A bitstring of revocation flags, published off chain, hash-anchored on chain.</td></tr>
+<tr><td>Supersede</td><td>Replace a credential with a corrected one; the old is revoked, never edited.</td></tr>
+<tr><td>Verifier</td><td>Whoever is checking. Employer, agency, foreign institution, government office.</td></tr>
+<tr><td><code>vct</code></td><td>Verifiable credential type — the frozen, versioned schema identifier.</td></tr>
+</tbody>
+</table>
+
+<h2 id="s29"><span class="num">29</span>Sources</h2>
+
+<ul class="srcs">
+  <li>Securiti — overview of Bangladesh's Personal Data Protection Act 2026, including the ordinance-to-act timeline: <a href="https://securiti.ai/bangladesh-personal-data-protection-act-overview/">securiti.ai/bangladesh-personal-data-protection-act-overview</a></li>
+  <li>SCL Insights — PDPO 2025 compliance obligations and the compliance window: <a href="https://bd-scl.com/insights/personal-data-protection-ordinance-2025-compliance.html">bd-scl.com/insights/personal-data-protection-ordinance-2025-compliance.html</a></li>
+  <li>Mahbub &amp; Company — data classification tiers and localisation requirements: <a href="https://mahbub-law.com/key-highlights-of-the-personal-data-protection-ordinance-2025-for-businesses/">mahbub-law.com</a></li>
+  <li>MOFA e-Apostille service directory — Apostille Convention accession and the digital process: <a href="https://mofa-servicedirectory.apostille.mygov.bd/eapostille">mofa-servicedirectory.apostille.mygov.bd/eapostille</a></li>
+  <li>The Daily Star — digital certificate verification and apostille system, with the government's savings estimate: <a href="https://www.thedailystar.net/tech-startup/news/bangladesh-goes-online-certificate-verification-apostille-system-3969256">thedailystar.net</a></li>
+  <li>ScholarsDream — education board verification timelines and failure modes: <a href="https://thescholarsdream.com/en/blog/education-board-verification-before-attestation">thescholarsdream.com</a></li>
+  <li>Porichoy — official NID and birth registration verification API: <a href="https://porichoy.gov.bd/about-us.html">porichoy.gov.bd/about-us</a></li>
+  <li>Didit — note on Porichoy licensing being restricted to Bangladesh Bank–regulated entities: <a href="https://didit.me/solutions/countries/bangladesh/">didit.me/solutions/countries/bangladesh</a></li>
+  <li>Ministry of Foreign Affairs — the attestation chain for public, private and National University certificates: <a href="https://mofa.gov.bd/site/page/d17104f1-a37a-4b7b-9b12-99f360072957/Educational-Certificate">mofa.gov.bd</a></li>
+  <li>Source documents: <code>BC_Whitepaper.pdf</code>, <code>CiviLedger_BCOLBD2026_Pitch.pptx</code>, <code>CiviLedger_pptx__1_.pptx</code></li>
+</ul>
+
+<p class="foot">Figures and regulatory positions were checked in September 2026 and will drift. Re-verify anything in §18 and §21 before it goes into a contract, a pitch, or a compliance filing.</p>
+
+</main>
+</div>
+</body>
+</html>

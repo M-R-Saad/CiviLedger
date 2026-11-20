@@ -1,0 +1,11 @@
+given_name,family_name,name_bn,date_of_birth,national_id_last4,programme,degree_level,major,result_cgpa,result_class,graduation_date,registration_no
+Ahnaf,Rahman,আহনাফ রহমান,2001-04-17,4821,BSc in Computer Science and Engineering,BACHELOR,Software Engineering,3.71,FIRST_CLASS,2024-11-30,UIU-CSE-2019-0412
+Sumaya,Akter,সুমাইয়া আক্তার,2000-09-02,1193,BSc in Computer Science and Engineering,BACHELOR,Data Science,3.88,FIRST_CLASS,2024-11-30,UIU-CSE-2019-0418
+Shahriar,Kabir,শাহরিয়ার কবির,2001-01-23,7740,BSc in Electrical and Electronic Engineering,BACHELOR,Power Systems,3.42,SECOND_CLASS,2024-11-30,UIU-EEE-2019-0233
+Nusrat,Jahan,নুসরাত জাহান,1999-12-11,2056,BBA,BACHELOR,Finance,3.65,FIRST_CLASS,2023-11-28,UIU-BBA-2018-1104
+Tanvir,Hossain,তানভীর হোসেন,2000-06-30,8812,MSc in Computer Science and Engineering,MASTER,Machine Learning,3.94,DISTINCTION,2025-05-20,UIU-MSCSE-2023-0077
+Farhana,Islam,ফারহানা ইসলাম,2002-02-14,,BSc in Computer Science and Engineering,BACHELOR,,3.21,SECOND_CLASS,2025-11-27,UIU-CSE-2020-0501
+Rakib,Hasan,রাকিব হাসান,2001-08-05,3390,BSc in Civil Engineering,BACHELOR,Structures,,,2024-11-30,UIU-CE-2019-0150
+Mim,Chowdhury,মিম চৌধুরী,2000-03-19,6674,BBA,BACHELOR,Marketing,3.55,FIRST_CLASS,15/11/2023,UIU-BBA-2018-1221
+Imran,Sarker,ইমরান সরকার,2001-07-07,9021,BSc in Computer Science and Engineering,BACHELOR,Cybersecurity,4.90,FIRST_CLASS,2024-11-30,UIU-CSE-2019-0455
+Tasnim,Noor,তাসনিম নূর,1999-05-25,1178,BSc in Pharmacy,BACHELOR,,3.77,FIRST_CLASS,,UIU-PHR-2018-0302

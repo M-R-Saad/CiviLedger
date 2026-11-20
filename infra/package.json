@@ -1,0 +1,13 @@
+{
+  "name": "@civiledger/infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Devnet topology: Besu IBFT genesis, validator keys, compose stack.",
+  "scripts": {
+    "genesis": "node scripts/generate-genesis.mjs"
+  },
+  "dependencies": {
+    "viem": "^2.21.54"
+  }
+}

@@ -1,0 +1,232 @@
+/*
+ * CiviLedger design tokens. Implements DESIGN.md §2–§6.
+ *
+ * Light only. The scene that forces it (DESIGN.md §1): a registrar doing forty
+ * approvals in a shift under fluorescent office light, and a graduate checking
+ * their wallet on a 2019 Android phone in daylight. Both are in bright rooms
+ * doing careful work.
+ *
+ * Neutrals are tinted warm at hue 75 so the product reads as paper and ink
+ * rather than cold slate. The accent is indigo, deliberately neither
+ * corporate-blue nor trust-green: this is civic infrastructure, not a bank and
+ * not a security vendor.
+ */
+
+:root {
+  /* Surfaces */
+  --bg: oklch(0.992 0.003 75);
+  --surface: oklch(1 0 0);
+  --surface-sunken: oklch(0.972 0.004 75);
+  --surface-raised: oklch(1 0 0);
+
+  /* Text */
+  --text: oklch(0.24 0.012 75);
+  --text-muted: oklch(0.47 0.012 75);
+  --text-subtle: oklch(0.6 0.01 75);
+  --text-on-accent: oklch(0.99 0.003 75);
+
+  /* Lines */
+  --border: oklch(0.905 0.006 75);
+  --border-strong: oklch(0.82 0.008 75);
+
+  /* Accent */
+  --accent: oklch(0.47 0.11 275);
+  --accent-hover: oklch(0.41 0.11 275);
+  --accent-active: oklch(0.36 0.1 275);
+  --accent-quiet: oklch(0.962 0.02 275);
+  --accent-border: oklch(0.86 0.045 275);
+
+  /* Focus. Amber-gold, so the ring clears AA on every surface including accent. */
+  --focus-ring: oklch(0.8 0.16 85);
+
+  /* Semantic */
+  --ok-fg: oklch(0.45 0.11 150);
+  --ok-bg: oklch(0.955 0.03 150);
+  --ok-border: oklch(0.84 0.07 150);
+
+  --warn-fg: oklch(0.5 0.1 70);
+  --warn-bg: oklch(0.96 0.045 75);
+  --warn-border: oklch(0.83 0.08 75);
+
+  --danger-fg: oklch(0.5 0.17 25);
+  --danger-bg: oklch(0.96 0.03 25);
+  --danger-border: oklch(0.85 0.09 25);
+
+  --info-fg: var(--accent);
+  --info-bg: var(--accent-quiet);
+  --info-border: var(--accent-border);
+
+  --warm-bg: oklch(0.963 0.022 65);
+  --warm-border: oklch(0.88 0.03 65);
+
+  /* Type */
+  --font-ui:
+    'Anek Bangla', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.9375rem;
+
+  --leading-xs: 1rem;
+  --leading-sm: 1.25rem;
+  --leading-base: 1.375rem;
+  --leading-md: 1.5rem;
+  --leading-lg: 1.75rem;
+  --leading-xl: 2rem;
+  --leading-2xl: 2.375rem;
+
+  /* Space. 4px base; vary it rather than padding everything equally. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+
+  --radius-control: 6px;
+  --radius-container: 10px;
+  --radius-media: 14px;
+
+  --shadow-overlay: 0 1px 2px oklch(0.24 0.01 75 / 0.08), 0 8px 24px oklch(0.24 0.01 75 / 0.1);
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --duration: 180ms;
+
+  --content-max: 1120px;
+  --form-max: 640px;
+  --prose-max: 68ch;
+}
+
+/* Bengali conjuncts sit taller; give the line a little more room. */
+:root:lang(bn),
+[lang='bn'] {
+  --leading-sm: 1.35rem;
+  --leading-base: 1.5rem;
+  --leading-md: 1.625rem;
+  --leading-lg: 1.875rem;
+  --leading-xl: 2.125rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--leading-lg);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * One focus treatment everywhere. Amber on a two-layer ring so it is visible on
+ * white, on the accent, and on every semantic tint (DESIGN.md §2).
+ */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+code,
+kbd,
+samp,
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  font-variant-ligatures: none;
+}
+
+/* Visible only to screen readers, but still focusable for skip links. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  z-index: 100;
+  transform: translateY(-200%);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-4);
+  font-weight: 500;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

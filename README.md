@@ -1,70 +1,128 @@
 # CiviLedger
 
-A consortium-blockchain credential verification prototype (BCOLBD 2026).
+Academic credential verification for Bangladesh. An employer scans a QR and
+knows in under two seconds whether a degree is real, who awarded it, and how
+rigorously the institution checked before signing. The consortium ledger
+underneath is the reason that answer can be trusted; no user ever sees it.
 
-## Workspaces
-- `contracts/` — Solidity smart contracts (Hardhat)
-- `backend/` — Express API + PostgreSQL + ethers.js bridge to the blockchain
-- `frontend/` — React + TypeScript (Vite) client, role-based UI (Citizen / Issuer / Verifier / Oversight)
-- `docs/` — project documentation (overview, schema, structure, workflow)
+Read [PLAN.html](PLAN.html) before making architectural decisions, particularly
+§7 (architecture), §25 (hard invariants) and §26 (non-goals).
 
-## Quick Start
+---
 
-### 0. Prerequisites
-- Node.js 18+
-- PostgreSQL running locally (or use SQLite — see `backend/.env.example`)
-- MetaMask browser extension
+## What is here
 
-### 1. Install dependencies (each workspace)
-```bash
-cd contracts && npm install
-cd ../backend && npm install
-cd ../frontend && npm install
+```text
+contracts/          Foundry. Five registries, no tokens, no value transfer
+packages/
+  credential/       SD-JWT VC issue, present, verify. Pure, no I/O
+  status-list/      W3C Bitstring Status List. Pure
+  verifier/         The public verification library (MIT)
+  chain/            viem clients, typed contract bindings, Merkle
+  ui/               Design tokens and the shared component vocabulary
+services/
+  api/              Fastify. Issuance, verification, wallet, registry
+  anchor-worker/    Drains the ledger outbox; nightly and weekly anchors
+apps/
+  console/          Issuer console for registrars
+  verify/           Public verification page, no authentication
+  wallet/           Graduate PWA
+infra/              Besu IBFT devnet, compose stack, genesis
+docs/               Verification spec, threat model, decisions
 ```
 
-### 2. Start a local blockchain
-```bash
-cd contracts
-npx hardhat node
-```
-Leave this running in its own terminal — it's your local Ethereum network with 20 pre-funded test accounts.
+## Running it
 
-### 3. Deploy contracts (in a second terminal)
-```bash
-cd contracts
-npx hardhat run scripts/deploy.js --network localhost
-```
-This writes contract addresses to `contracts/deployments/localhost.json` and copies ABIs into `backend/src/contracts-abi/`.
+Requires Docker and Node 22+.
 
-### 4. (Optional) Seed demo data
 ```bash
-npx hardhat run scripts/seed-demo-data.js --network localhost
+pnpm install
+cp infra/.env.example infra/.env        # generates fresh encryption keys
+docker compose -f infra/docker-compose.yml up -d
+
+pnpm --filter @civiledger/api prisma:migrate
+pnpm --filter @civiledger/api seed      # synthetic data only
+
+pnpm --filter @civiledger/verify dev    # http://localhost:5174
+pnpm --filter @civiledger/console dev   # http://localhost:5173
+pnpm --filter @civiledger/wallet dev    # http://localhost:5175
 ```
 
-### 5. Configure and start the backend
+The seed prints the demo accounts and a verifier API key. Every person in it is
+invented: PLAN §18 is explicit that the prototype runs on synthetic data, and
+the API refuses an import not marked synthetic unless
+`ALLOW_REAL_PERSONAL_DATA` is set, which needs a signed DPA, in-country hosting
+and a completed DPIA first.
+
+### Without Docker
+
+Any EVM node and any Postgres 16 will do:
+
 ```bash
-cd ../backend
-cp .env.example .env   # edit DB credentials
-npm run migrate        # create tables
-npm run dev
+anvil --port 8545 --chain-id 1337
+forge script script/Deploy.s.sol:Deploy --rpc-url http://127.0.0.1:8545 \
+  --broadcast --sig "run(address,bytes32)" $ADMIN $ADMIN_ORG_ID --private-key $KEY
 ```
 
-### 6. Configure and start the frontend
+## Testing
+
 ```bash
-cd ../frontend
-cp .env.example .env
-npm run dev
+pnpm test                    # every package
+forge test                   # contracts, including fuzz
+forge coverage --report summary
 ```
 
-Then open http://localhost:5173, connect MetaMask (pointed at "Hardhat Local" network, chain ID 31337), and follow `docs/04_WORKFLOW.md`.
+Integration tests need a real database and a real chain, and skip without them:
 
-## Adding Hardhat Local Network to MetaMask
-- Network name: Hardhat Local
-- RPC URL: http://127.0.0.1:8545
-- Chain ID: 31337
-- Currency symbol: ETH
+```bash
+CIVILEDGER_TEST_RPC_URL=http://127.0.0.1:8545 \
+CIVILEDGER_TEST_DATABASE_URL=postgresql://…/civiledger_test \
+pnpm --filter @civiledger/api test
+```
 
-Import one of the private keys printed by `npx hardhat node` into MetaMask to get test ETH.
+They run against real infrastructure on purpose. The things most likely to
+break here are a status list whose hash does not match the chain, a Merkle
+proof the contract rejects, and an encrypted column that will not decrypt.
+A mocked test passes all three.
 
-## Docs
-See the `docs/` folder for the full project overview, DB schema, folder structure rationale, and step-by-step build workflow.
+## The three rules that shape everything
+
+**Nothing on chain is personal data.** No names, no dates of birth, no grades,
+no unsalted hash of any of those, no stable per-citizen identifier, and no
+individual verification events. Every anchored digest is salted with a secret
+held only in the database, so destroying that row makes the on-chain digest an
+unlinkable random value. That is how erasure works under the PDPA.
+
+**Keys resolve by signing time, not by now.** `IssuerRegistry.keyAt(orgId, ts)`
+takes the credential's `iat`. A rotation must never invalidate history, and a
+compromised key is revoked with an effective instant so the credentials signed
+before it survive.
+
+**Verification must work without us.** The credential, a signed registry
+snapshot and a status list are sufficient. If a check needs our API, the design
+is wrong. [`packages/verifier`](packages/verifier) is MIT licensed and has no
+network or chain client of its own, so anyone can run it against their own node.
+
+## Documentation
+
+| Document | What it is for |
+| --- | --- |
+| [PLAN.html](PLAN.html) | The binding architecture and business plan |
+| [docs/verification-spec.md](docs/verification-spec.md) | How to verify without us |
+| [docs/threat-model.md](docs/threat-model.md) | Threats, controls, and the gaps |
+| [docs/decisions/](docs/decisions) | One ADR per decision that extends the plan |
+| [PRODUCT.md](PRODUCT.md) / [DESIGN.md](DESIGN.md) | Users, voice, and the visual system |
+
+## Status
+
+Phase 1 of PLAN §23. The system runs end to end on synthetic data: import,
+review, four-eyes approval, signing, anchoring, sharing with a claim scope,
+verification, revocation inside a minute, and a consent receipt the graduate
+can read.
+
+Not built, and deliberately listed rather than implied: SMS and email delivery
+of enrolment invites, a KMS-backed signer for a real institution, anomaly
+detection on issuance patterns, and an independent security review. The
+threshold for governed actions is 1 until a second organisation runs a node,
+and [infra/README.md](infra/README.md) says so plainly rather than calling four
+validators on one laptop a consortium.

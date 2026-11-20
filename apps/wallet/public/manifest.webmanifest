@@ -1,0 +1,18 @@
+{
+  "name": "CiviLedger wallet",
+  "short_name": "CiviLedger",
+  "description": "Hold your academic credentials and choose exactly what to share.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdfdfc",
+  "theme_color": "#f8f8f6",
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable any" }
+  ]
+}

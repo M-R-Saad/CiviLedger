@@ -1,0 +1,189 @@
+# The whole devnet, one command. PLAN.html §7.1, §23 phase 1.
+#
+#   docker compose up -d
+#
+# Four Besu validators running IBFT 2.0, Postgres, the API and the anchor
+# worker. Bringing this up is also how a prospective issuer evaluates us, so it
+# has to work first time on a laptop.
+
+name: civiledger
+
+x-besu: &besu
+  image: hyperledger/besu:24.12.2
+  restart: unless-stopped
+  entrypoint:
+    - /opt/besu/bin/besu
+    - --config-file=/config/config.toml
+  healthcheck:
+    test: ['CMD-SHELL', 'nc -z localhost 30303 || exit 1']
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 20s
+
+services:
+  # --- the consortium ledger -------------------------------------------------
+  #
+  # Four validators because IBFT 2.0 needs 3f+1 to tolerate f faults, and a
+  # three-node network halts the first time a node is rebooted for patching.
+  #
+  # Only validator 1 exposes RPC. A validator that also answers arbitrary RPC
+  # is a validator with extra attack surface for no gain.
+  besu-validator-1:
+    <<: *besu
+    container_name: civiledger-besu-1
+    ports:
+      - '8545:8545'
+    volumes:
+      - besu1:/data
+      - ./besu/config.toml:/config/config.toml:ro
+      - ./besu/genesis.json:/config/genesis.json:ro
+      - ./besu/static-nodes.json:/config/static-nodes.json:ro
+      - ./besu/keys/validator1.key:/data/key:ro
+
+  besu-validator-2:
+    <<: *besu
+    container_name: civiledger-besu-2
+    volumes:
+      - besu2:/data
+      - ./besu/config.toml:/config/config.toml:ro
+      - ./besu/genesis.json:/config/genesis.json:ro
+      - ./besu/static-nodes.json:/config/static-nodes.json:ro
+      - ./besu/keys/validator2.key:/data/key:ro
+
+  besu-validator-3:
+    <<: *besu
+    container_name: civiledger-besu-3
+    volumes:
+      - besu3:/data
+      - ./besu/config.toml:/config/config.toml:ro
+      - ./besu/genesis.json:/config/genesis.json:ro
+      - ./besu/static-nodes.json:/config/static-nodes.json:ro
+      - ./besu/keys/validator3.key:/data/key:ro
+
+  besu-validator-4:
+    <<: *besu
+    container_name: civiledger-besu-4
+    volumes:
+      - besu4:/data
+      - ./besu/config.toml:/config/config.toml:ro
+      - ./besu/genesis.json:/config/genesis.json:ro
+      - ./besu/static-nodes.json:/config/static-nodes.json:ro
+      - ./besu/keys/validator4.key:/data/key:ro
+
+  # --- off-chain -------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: civiledger-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: civiledger
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-civiledger}
+      POSTGRES_DB: civiledger
+      # Deterministic collation, so an ORDER BY on a Bangla name sorts the same
+      # way on a developer's laptop and on the pilot server.
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=en-GB --encoding=UTF8'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U civiledger -d civiledger']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # --- contract deployment, once ---------------------------------------------
+  contracts:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.contracts
+    container_name: civiledger-contracts
+    restart: 'no'
+    depends_on:
+      besu-validator-1:
+        condition: service_healthy
+    environment:
+      RPC_URL: http://besu-validator-1:8545
+      DEPLOYER_PRIVATE_KEY: ${DEPLOYER_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      ADMIN_ADDRESS: ${ADMIN_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
+      ADMIN_ORG_ID: ${ADMIN_ORG_ID:-0x01ff3b1f3874ed2a0df6d27ea39592959f8238d44e6cdbe5629896c988e18690}
+    volumes:
+      - deployments:/out
+
+  # --- application -----------------------------------------------------------
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.node
+      args:
+        SERVICE: api
+    container_name: civiledger-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      contracts:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://civiledger:${POSTGRES_PASSWORD:-civiledger}@postgres:5432/civiledger?schema=public
+      CHAIN_RPC_URL: http://besu-validator-1:8545
+      CHAIN_ID: '13137'
+      DEPLOYMENTS_FILE: /chain/13137.json
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      CONSOLE_ORIGIN: ${CONSOLE_ORIGIN:-http://localhost:5173}
+      VERIFY_ORIGIN: ${VERIFY_ORIGIN:-http://localhost:5174}
+      WALLET_ORIGIN: ${WALLET_ORIGIN:-http://localhost:5175}
+      DATA_ENCRYPTION_KEYS: ${DATA_ENCRYPTION_KEYS:?set this; see .env.example}
+      BLIND_INDEX_KEY: ${BLIND_INDEX_KEY:?set this; see .env.example}
+      SESSION_SECRET: ${SESSION_SECRET:?set this; see .env.example}
+      # Invariant §25: real graduate data needs a signed DPA, in-country
+      # hosting and a DPIA first. The devnet never flips this.
+      ALLOW_REAL_PERSONAL_DATA: 'false'
+    ports:
+      - '4000:4000'
+    volumes:
+      - deployments:/chain:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4000/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  anchor-worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.node
+      args:
+        SERVICE: anchor-worker
+    container_name: civiledger-anchor-worker
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://civiledger:${POSTGRES_PASSWORD:-civiledger}@postgres:5432/civiledger?schema=public
+      CHAIN_RPC_URL: http://besu-validator-1:8545
+      CHAIN_ID: '13137'
+      DEPLOYMENTS_FILE: /chain/13137.json
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      DATA_ENCRYPTION_KEYS: ${DATA_ENCRYPTION_KEYS:?set this; see .env.example}
+      BLIND_INDEX_KEY: ${BLIND_INDEX_KEY:?set this; see .env.example}
+      SESSION_SECRET: ${SESSION_SECRET:?set this; see .env.example}
+      # Registry writes only. This key cannot sign a credential; issuer keys
+      # live in the institution's KMS and never reach this process.
+      ANCHOR_PRIVATE_KEY: ${ANCHOR_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+      WORKER_TICK_SECONDS: '15'
+    volumes:
+      - deployments:/chain:ro
+
+volumes:
+  besu1:
+  besu2:
+  besu3:
+  besu4:
+  postgres:
+  deployments:
