@@ -8,7 +8,7 @@ const Organization = sequelize.define(
     name: { type: DataTypes.STRING, allowNull: false },
     type: { type: DataTypes.ENUM("ISSUER", "VERIFIER", "BOTH"), allowNull: false },
     onchain_address: { type: DataTypes.STRING(42), allowNull: true, unique: true },
-    credential_types_authorized: { type: DataTypes.ARRAY(DataTypes.STRING), allowNull: true },
+    credential_types_authorized: { type: DataTypes.JSON, allowNull: true },
     status: {
       type: DataTypes.ENUM("PENDING", "ACTIVE", "SUSPENDED", "OFFBOARDED"),
       defaultValue: "PENDING"

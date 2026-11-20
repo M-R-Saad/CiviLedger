@@ -41,7 +41,7 @@ module.exports = {
         name: "National Identity Authority",
         type: "ISSUER",
         onchain_address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-        credential_types_authorized: "{IDENTITY}",
+        credential_types_authorized: JSON.stringify(["IDENTITY"]),
         status: "ACTIVE",
         created_at: now
       },
@@ -50,7 +50,7 @@ module.exports = {
         name: "Education Authority",
         type: "ISSUER",
         onchain_address: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-        credential_types_authorized: "{ACADEMIC_DEGREE}",
+        credential_types_authorized: JSON.stringify(["ACADEMIC_DEGREE"]),
         status: "ACTIVE",
         created_at: now
       },
@@ -59,7 +59,7 @@ module.exports = {
         name: "Transport Authority (BRTA)",
         type: "ISSUER",
         onchain_address: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-        credential_types_authorized: "{DRIVING_LICENSE}",
+        credential_types_authorized: JSON.stringify(["DRIVING_LICENSE"]),
         status: "ACTIVE",
         created_at: now
       },
