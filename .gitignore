@@ -24,6 +24,12 @@ services/api/prisma/generated/
 # anything a real operator generates must never be.
 infra/besu/keys/*.key.local
 
+# Old Hardhat artifacts (project uses Foundry now)
+contracts/artifacts/
+
+# Claude Code configuration
+.claude/
+
 .DS_Store
 Thumbs.db
 *.log

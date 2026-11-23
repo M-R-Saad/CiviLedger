@@ -33,26 +33,61 @@ docs/               Verification spec, threat model, decisions
 
 ## Running it
 
-Requires Docker and Node 22+.
+**Prerequisites:** Docker, Node 22+, and [pnpm](https://pnpm.io/installation)
+(`npm install -g pnpm` or `corepack enable`).
+
+### 1. Install dependencies
 
 ```bash
 pnpm install
-cp infra/.env.example infra/.env        # generates fresh encryption keys
-docker compose -f infra/docker-compose.yml up -d
-
-pnpm --filter @civiledger/api prisma:migrate
-pnpm --filter @civiledger/api seed      # synthetic data only
-
-pnpm --filter @civiledger/verify dev    # http://localhost:5174
-pnpm --filter @civiledger/console dev   # http://localhost:5173
-pnpm --filter @civiledger/wallet dev    # http://localhost:5175
 ```
 
-The seed prints the demo accounts and a verifier API key. Every person in it is
-invented: PLAN §18 is explicit that the prototype runs on synthetic data, and
-the API refuses an import not marked synthetic unless
+### 2. Configure environment
+
+```bash
+cp infra/.env.example infra/.env
+```
+
+The example file ships usable devnet defaults. For anything beyond local
+development, generate fresh values for `DATA_ENCRYPTION_KEYS`,
+`BLIND_INDEX_KEY` and `SESSION_SECRET`.
+
+### 3. Start the stack
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
+This brings up **everything**: four Besu IBFT validators, Postgres, deploys the
+contracts automatically, starts the API on port 4000 and the anchor worker.
+Wait until all services are healthy:
+
+```bash
+docker compose -f infra/docker-compose.yml ps   # all should show "healthy"
+```
+
+### 4. Migrate and seed
+
+```bash
+pnpm --filter @civiledger/api prisma:migrate
+pnpm --filter @civiledger/api seed
+```
+
+The seed prints the demo accounts (emails + passwords) and a verifier API key.
+Every person in it is invented: PLAN §18 is explicit that the prototype runs on
+synthetic data, and the API refuses an import not marked synthetic unless
 `ALLOW_REAL_PERSONAL_DATA` is set, which needs a signed DPA, in-country hosting
 and a completed DPIA first.
+
+### 5. Start the frontends
+
+Open three terminals:
+
+```bash
+pnpm --filter @civiledger/console dev    # Issuer console  → http://localhost:5173
+pnpm --filter @civiledger/verify dev     # Verification    → http://localhost:5174
+pnpm --filter @civiledger/wallet dev     # Graduate wallet → http://localhost:5175
+```
 
 ### Without Docker
 
@@ -63,6 +98,8 @@ anvil --port 8545 --chain-id 1337
 forge script script/Deploy.s.sol:Deploy --rpc-url http://127.0.0.1:8545 \
   --broadcast --sig "run(address,bytes32)" $ADMIN $ADMIN_ORG_ID --private-key $KEY
 ```
+
+Point `DATABASE_URL` at your Postgres instance, then run steps 4 and 5 above.
 
 ## Testing
 
@@ -111,7 +148,7 @@ network or chain client of its own, so anyone can run it against their own node.
 | [docs/verification-spec.md](docs/verification-spec.md) | How to verify without us |
 | [docs/threat-model.md](docs/threat-model.md) | Threats, controls, and the gaps |
 | [docs/decisions/](docs/decisions) | One ADR per decision that extends the plan |
-| [PRODUCT.md](PRODUCT.md) / [DESIGN.md](DESIGN.md) | Users, voice, and the visual system |
+| [docs/product.md](docs/product.md) / [docs/design.md](docs/design.md) | Users, voice, and the visual system |
 
 ## Status
 
